@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#072641"/>
+      <stop offset="55%" stop-color="#0a2e4a"/>
+      <stop offset="100%" stop-color="#08243b"/>
+    </linearGradient>
+    <radialGradient id="oceanGlowA" cx="18%" cy="32%" r="48%">
+      <stop offset="0%" stop-color="#2d6b97" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#2d6b97" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="oceanGlowB" cx="82%" cy="70%" r="44%">
+      <stop offset="0%" stop-color="#2a628f" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#2a628f" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="landShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <style>
+      .coastline { stroke: #d7e3ec; stroke-opacity: 0.26; stroke-width: 2.2; fill-opacity: 0.24; }
+      .atlas { fill: #2f86d5; stroke: #8fd4ff; }
+      .meridian { fill: #c74242; stroke: #ff9da1; }
+      .concordat { fill: #d9b83f; stroke: #ffe78c; }
+      .neutral { fill: #a9aba7; stroke: #dfe4dc; }
+      .province { stroke-width: 2.1; stroke-linejoin: round; stroke-linecap: round; filter: url(#landShadow); }
+      .route { fill: none; stroke: #9fb8c9; stroke-width: 2; stroke-dasharray: 8 10; opacity: 0.45; }
+      .node circle { fill: rgba(10, 40, 62, 0.94); stroke: #c8dae8; stroke-width: 1.8; }
+      .node text { fill: #f1f7fc; font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .node-label { fill: #d2dfeb; font-size: 11px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="720" fill="url(#oceanGrad)"/>
+  <rect x="0" y="0" width="1200" height="720" fill="url(#oceanGlowA)"/>
+  <rect x="0" y="0" width="1200" height="720" fill="url(#oceanGlowB)"/>
+
+  <!-- Landmass silhouettes -->
+  <path class="coastline atlas" d="M86 108 C176 70 312 78 372 146 C410 214 412 326 384 420 C350 520 280 586 176 596 C98 596 56 558 40 490 C24 420 26 300 40 212 C50 162 64 126 86 108 Z"/>
+  <path class="coastline meridian" d="M470 84 C560 50 712 56 792 116 C840 190 846 338 824 466 C802 580 722 644 596 646 C506 640 448 590 426 500 C400 406 404 256 424 166 C434 122 446 98 470 84 Z"/>
+  <path class="coastline concordat" d="M820 96 C904 62 1034 68 1100 126 C1148 196 1158 322 1142 448 C1126 562 1064 640 964 646 C882 644 824 600 794 528 C764 448 758 328 772 232 C782 164 794 122 820 96 Z"/>
+
+  <!-- Blue Atlas: coastal block + islands -->
+  <g>
+    <path class="province atlas" d="M120 140 L230 120 L305 145 L305 215 L220 240 L130 215 Z"/>
+    <path class="province atlas" d="M305 145 L360 170 L378 245 L330 300 L250 300 L220 240 L305 215 Z"/>
+    <path class="province atlas" d="M130 215 L220 240 L250 300 L230 380 L150 415 L90 360 L92 280 Z"/>
+    <path class="province atlas" d="M90 360 L150 415 L210 470 L190 540 L110 560 L52 510 L46 430 Z"/>
+    <path class="province atlas" d="M230 380 L330 300 L372 360 L350 450 L280 520 L210 470 Z"/>
+
+    <path class="province atlas" d="M58 116 L118 98 L170 118 L165 162 L106 182 L60 156 Z"/>
+    <path class="province atlas" d="M52 300 L112 286 L152 312 L145 356 L92 374 L48 348 Z"/>
+    <path class="province atlas" d="M54 514 L122 496 L174 518 L166 568 L108 586 L60 560 Z"/>
+  </g>
+
+  <!-- Neutral isthmus and straits -->
+  <g>
+    <path class="province neutral" d="M386 170 L438 156 L464 196 L454 252 L410 274 L378 236 Z"/>
+    <path class="province neutral" d="M378 278 L424 270 L448 308 L438 366 L398 388 L370 350 Z"/>
+    <path class="province neutral" d="M370 394 L414 386 L440 426 L432 486 L390 508 L362 470 Z"/>
+    <path class="province neutral" d="M392 518 L438 510 L462 548 L452 604 L410 624 L382 586 Z"/>
+  </g>
+
+  <!-- Red Meridian: single mainland divided into provinces -->
+  <g>
+    <path class="province meridian" d="M486 124 L596 96 L666 122 L650 198 L560 216 L492 182 Z"/>
+    <path class="province meridian" d="M666 122 L760 116 L800 164 L776 228 L690 238 L650 198 Z"/>
+    <path class="province meridian" d="M492 182 L560 216 L574 296 L510 346 L454 304 L450 238 Z"/>
+    <path class="province meridian" d="M560 216 L690 238 L700 324 L620 366 L574 296 Z"/>
+    <path class="province meridian" d="M690 238 L776 228 L806 298 L782 378 L700 324 Z"/>
+    <path class="province meridian" d="M454 304 L510 346 L548 430 L532 520 L468 542 L430 474 L424 374 Z"/>
+    <path class="province meridian" d="M548 430 L620 366 L704 396 L710 498 L640 566 L532 520 Z"/>
+    <path class="province meridian" d="M704 396 L782 378 L812 462 L798 548 L720 590 L640 566 L710 498 Z"/>
+  </g>
+
+  <!-- Gold Concordat: mainland + islands -->
+  <g>
+    <path class="province concordat" d="M840 132 L934 106 L1000 128 L988 192 L900 210 L842 176 Z"/>
+    <path class="province concordat" d="M988 192 L1062 188 L1100 236 L1086 304 L1018 330 L950 286 Z"/>
+    <path class="province concordat" d="M826 214 L900 210 L950 286 L920 354 L848 370 L806 314 Z"/>
+    <path class="province concordat" d="M1018 330 L1086 304 L1126 364 L1114 442 L1048 474 L990 430 Z"/>
+    <path class="province concordat" d="M848 370 L920 354 L990 430 L964 502 L888 520 L834 468 Z"/>
+    <path class="province concordat" d="M990 430 L1048 474 L1084 542 L1060 604 L986 620 L936 574 L964 502 Z"/>
+    <path class="province concordat" d="M834 468 L888 520 L936 574 L902 634 L828 620 L790 556 Z"/>
+
+    <path class="province concordat" d="M1096 250 L1132 206 L1160 228 L1152 268 L1112 282 L1084 256 Z"/>
+  </g>
+
+  <!-- Sea routes -->
+  <path class="route" d="M112 146 Q220 116 300 154 Q352 180 408 220"/>
+  <path class="route" d="M116 548 Q262 604 430 632 Q422 594 410 566"/>
+  <path class="route" d="M810 628 Q902 616 962 594 Q1052 540 1120 246"/>
+
+  <!-- Sea nodes -->
+  <g class="node">
+    <circle cx="300" cy="154" r="18"/>
+    <text x="300" y="154">⚓</text>
+    <text class="node-label" x="325" y="159">Узел Т-1</text>
+  </g>
+  <g class="node">
+    <circle cx="430" cy="632" r="18"/>
+    <text x="430" y="632">⚓</text>
+    <text class="node-label" x="455" y="637">Узел К-1</text>
+  </g>
+  <g class="node">
+    <circle cx="810" cy="628" r="18"/>
+    <text x="810" y="628">⚓</text>
+    <text class="node-label" x="835" y="633">Узел К-2</text>
+  </g>
+</svg>
