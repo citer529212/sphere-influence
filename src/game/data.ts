@@ -92,6 +92,14 @@ export const ACTIONS: Record<string, ActionDefinition> = {
   }
 };
 
+export const PLAYER_ACTION_IDS = [
+  'promote',
+  'cultureProgram',
+  'counterNarrative',
+  'factcheck',
+  'buildMediaNode'
+] as const;
+
 export const WORLD_EVENTS: WorldEvent[] = [
   { id: 'border_incident', name: 'Пограничный инцидент', description: 'Повестки Безопасности и Суверенитета получают импульс.' },
   { id: 'economic_downturn', name: 'Экономический спад', description: 'Нарратив Развития звучит убедительнее.' },

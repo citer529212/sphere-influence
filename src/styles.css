@@ -264,6 +264,20 @@ select {
   margin: 8px 0;
 }
 
+.rules h3 {
+  margin: 16px 0 6px;
+  color: #dcecff;
+  font-size: 1.02rem;
+}
+
+.rules ul {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+  display: grid;
+  gap: 5px;
+  color: #d7e7fb;
+}
+
 .result-overlay {
   position: fixed;
   inset: 0;

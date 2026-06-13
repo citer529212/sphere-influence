@@ -1,4 +1,4 @@
-import { ACTIONS, FACTIONS, NARRATIVES } from '../game/data';
+import { ACTIONS, FACTIONS, NARRATIVES, PLAYER_ACTION_IDS } from '../game/data';
 import { ActionId, FactionId, GameState, NarrativeId, Region } from '../game/types';
 import { canPlayerUseAction, getActionPreview } from '../game/simulation';
 
@@ -36,7 +36,7 @@ export function ActionPanel({
   onEndTurn
 }: ActionPanelProps): JSX.Element {
   const faction = FACTIONS[playerFaction];
-  const actionIds = Object.keys(ACTIONS) as ActionId[];
+  const actionIds = [...PLAYER_ACTION_IDS] as ActionId[];
 
   return (
     <section className="panel action-panel">
