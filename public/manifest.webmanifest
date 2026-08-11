@@ -1,0 +1,20 @@
+{
+  "name": "Сфера влияния",
+  "short_name": "Сфера",
+  "description": "Пошаговая стратегия о борьбе вымышленных сверхдержав за информационное влияние.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#07131f",
+  "theme_color": "#0f2235",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "strategy"]
+}
