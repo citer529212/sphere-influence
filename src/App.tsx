@@ -11,7 +11,8 @@ export default function App(): JSX.Element {
   const [state, setState] = useState(createInitialState);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(state.regions[0]?.id ?? null);
   const [selectedNarrative, setSelectedNarrative] = useState<NarrativeId>('security');
-  const [showRules, setShowRules] = useState(false);
+  const [screen, setScreen] = useState<'menu' | 'rules' | 'game'>('menu');
+  const [showRules] = useState(false);
 
   const selectedRegion =
     selectedRegionId !== null ? state.regions.find((region) => region.id === selectedRegionId) ?? null : null;
@@ -29,6 +30,10 @@ export default function App(): JSX.Element {
     return controlled / subset.length;
   }, [state]);
 
+  // Vite Fast Refresh can preserve old hook values while we are changing onboarding.
+  // If an old boolean lands here, treat it as the start menu instead of falling into the game.
+  const activeScreen = screen === 'rules' || screen === 'game' ? screen : 'menu';
+
   const applyActionHandler = (actionId: ActionId): void => {
     if (!selectedRegion) {
       return;
@@ -40,6 +45,87 @@ export default function App(): JSX.Element {
   const endTurnHandler = (): void => {
     setState((prev) => endTurn(prev));
   };
+
+
+  if (activeScreen === 'menu') {
+    return (
+      <div className="intro-shell">
+        <section className="start-card">
+          <div className="game-mark" aria-hidden="true">
+            <span className="mark-orbit orbit-atlas" />
+            <span className="mark-orbit orbit-meridian" />
+            <span className="mark-orbit orbit-concordat" />
+            <span className="mark-core">СИ</span>
+          </div>
+          <p className="eyebrow">абстрактная стратегия информационного влияния</p>
+          <h1>Сфера влияния</h1>
+          <p className="start-lead">
+            Три вымышленные сверхдержавы спорят не за границы, а за доверие, повестку и медиаприсутствие.
+            Ваша цель - сделать влияние Синего Атласа устойчивым, не доведя карту до усталости и кризиса доверия.
+          </p>
+          <button className="primary-start" onClick={() => setScreen('rules')}>Начать</button>
+        </section>
+      </div>
+    );
+  }
+
+  if (activeScreen === 'rules') {
+    return (
+      <div className="intro-shell rules-screen">
+        <section className="rules-card">
+          <p className="eyebrow">перед стартом: 2 минуты на карту</p>
+          <h1>Как играть</h1>
+          <div className="rules-flow">
+            <article className="rule-tile accent-atlas">
+              <h2>1. Смотрите на контроль</h2>
+              <p>
+                <strong>Цвет земли</strong> показывает политического владельца. <strong>Светящийся контур</strong> показывает,
+                кто сейчас контролирует информационное поле региона.
+              </p>
+              <p className="example-line"><span className="chip atlas">Синий</span> контур = регион слушает Синий Атлас.</p>
+            </article>
+
+            <article className="rule-tile accent-concordat">
+              <h2>2. Читайте степень контроля</h2>
+              <p>
+                Маленькая шкала на регионе показывает уверенность инфоконтроля. Чем она длиннее, тем сложнее сопернику
+                быстро перевернуть регион одним действием.
+              </p>
+              <p className="example-line"><span className="control-demo"><i /></span> почти полный индикатор = прочный контроль.</p>
+            </article>
+
+            <article className="rule-tile accent-meridian">
+              <h2>3. Не перегревайте аудиторию</h2>
+              <p>
+                Агрессивные действия дают быстрый результат, но растят усталость. Усталость снижает эффективность кампаний,
+                повышает сопротивление и может привести к кризису доверия.
+              </p>
+              <p className="example-line"><span className="fatigue-example low" /> низкая <span className="fatigue-example mid" /> средняя <span className="fatigue-example high" /> высокая</p>
+            </article>
+
+            <article className="rule-tile accent-neutral">
+              <h2>4. Делайте 3 действия за ход</h2>
+              <p>
+                Выберите регион, выберите нарратив и примените действие. Мягкие программы медленнее, зато безопаснее.
+                Контрходы быстрее, но создают напряжение.
+              </p>
+              <p className="example-line">Победа: 60% инфоконтроля 3 хода подряд или 75% нейтральных/спорных регионов.</p>
+            </article>
+          </div>
+
+          <div className="rules-legend-strip">
+            <span><b className="legend-square atlas" />Синий Атлас</span>
+            <span><b className="legend-square meridian" />Красный Меридиан</span>
+            <span><b className="legend-square concordat" />Золотой Конкордат</span>
+            <span><b className="legend-square neutral" />Нейтральные земли</span>
+            <span><b className="fracture-inline">↯</b> разлом контроля</span>
+          </div>
+
+          <button className="primary-start" onClick={() => setScreen('game')}>Ок, к игре</button>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="layout">
@@ -73,7 +159,7 @@ export default function App(): JSX.Element {
       <section className="panel log-panel">
         <div className="panel-row">
           <h2>Журнал</h2>
-          <button onClick={() => setShowRules((prev) => !prev)}>{showRules ? 'Скрыть правила' : 'Правила'}</button>
+          <button onClick={() => setScreen('rules')}>Правила</button>
         </div>
         <ul>
           {state.log.slice(0, 5).map((entry, index) => (
@@ -82,7 +168,7 @@ export default function App(): JSX.Element {
         </ul>
       </section>
 
-      {showRules && (
+      {showRules && false && (
         <section className="panel rules">
           <h2>Правила</h2>
 

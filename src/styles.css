@@ -648,22 +648,36 @@ select {
   fill: #061c32;
 }
 
+.designer-map-backdrop {
+  opacity: 0.96;
+  pointer-events: none;
+}
+
+.influence-hatch {
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
 .region-path {
   cursor: pointer;
-  transition: filter 0.16s ease, opacity 0.16s ease;
-  opacity: 0.97;
+  fill-opacity: 0.05;
+  transition: filter 0.16s ease, opacity 0.16s ease, fill-opacity 0.16s ease;
+  opacity: 0.98;
   stroke-linejoin: round;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.28));
 }
 
 .region-path:hover {
-  opacity: 0.92;
-  filter: brightness(1.07) saturate(1.05) drop-shadow(0 0 7px rgba(0, 0, 0, 0.38));
+  fill-opacity: 0.14;
+  opacity: 1;
+  filter: brightness(1.09) saturate(1.06) drop-shadow(0 0 8px rgba(160, 216, 255, 0.28));
 }
 
 .region-path.selected {
-  filter: drop-shadow(0 0 10px currentColor);
+  fill-opacity: 0.2;
+  filter: drop-shadow(0 0 12px currentColor);
 }
 
 .region-label {
@@ -680,12 +694,16 @@ select {
 }
 
 .region-label-abbr {
-  fill: #d9ecff;
+  fill: #f8fbff;
   font-size: 1em;
-  font-weight: 800;
+  font-weight: 900;
   paint-order: stroke;
-  stroke: #16202a;
-  stroke-width: 3.3;
+  stroke: #071426;
+  stroke-width: 4;
+}
+
+.dynamic-region-label {
+  opacity: 0.92;
 }
 
 .region-icon {
@@ -754,4 +772,318 @@ select {
   width: 16px;
   display: inline-grid;
   place-items: center;
+}
+
+
+.legend-hatch {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  border: 1px solid rgba(180, 210, 235, 0.65);
+  background: repeating-linear-gradient(45deg, rgba(102, 199, 255, 0.95) 0 2px, transparent 2px 6px);
+}
+
+.legend-hatch.atlas {
+  box-shadow: 0 0 8px rgba(102, 199, 255, 0.18);
+}
+
+.intro-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(88, 184, 255, 0.18), transparent 28%),
+    radial-gradient(circle at 70% 20%, rgba(255, 210, 84, 0.12), transparent 24%),
+    radial-gradient(circle at 52% 74%, rgba(255, 91, 105, 0.12), transparent 30%),
+    linear-gradient(180deg, #04101d 0%, #071b2c 54%, #050d17 100%);
+}
+
+.start-card,
+.rules-card {
+  width: min(980px, 100%);
+  border: 1px solid rgba(108, 164, 211, 0.42);
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(14, 34, 53, 0.96), rgba(8, 20, 34, 0.98));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: clamp(26px, 5vw, 56px);
+  text-align: center;
+}
+
+.start-card h1,
+.rules-card h1 {
+  margin: 8px 0 14px;
+  font-size: clamp(2.6rem, 7vw, 5.5rem);
+  letter-spacing: -0.05em;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #84cfff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.start-lead {
+  width: min(720px, 100%);
+  margin: 0 auto 30px;
+  color: #c7d8ea;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.game-mark {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 22px;
+  display: grid;
+  place-items: center;
+}
+
+.mark-core {
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #102c45, #09192a);
+  border: 1px solid rgba(132, 207, 255, 0.65);
+  color: #f4f9ff;
+  font-weight: 900;
+  font-size: 1.6rem;
+  box-shadow: 0 0 34px rgba(102, 199, 255, 0.3);
+}
+
+.mark-orbit {
+  position: absolute;
+  inset: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 42% 58% 48% 52%;
+}
+
+.orbit-atlas {
+  border-color: rgba(102, 199, 255, 0.72);
+  transform: rotate(-18deg);
+}
+
+.orbit-meridian {
+  border-color: rgba(255, 112, 122, 0.62);
+  transform: rotate(42deg) scale(0.88);
+}
+
+.orbit-concordat {
+  border-color: rgba(255, 228, 119, 0.68);
+  transform: rotate(86deg) scale(1.05);
+}
+
+.primary-start {
+  min-width: 210px;
+  border: 1px solid rgba(132, 207, 255, 0.7);
+  border-radius: 999px;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #1d82bf, #173b5a);
+  color: #f4f9ff;
+  font-weight: 900;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 18px 45px rgba(22, 103, 158, 0.28);
+}
+
+.primary-start:hover {
+  filter: brightness(1.09);
+}
+
+.rules-screen {
+  align-items: start;
+}
+
+.rules-card {
+  text-align: left;
+}
+
+.rules-card > h1,
+.rules-card > .eyebrow,
+.rules-card > .primary-start {
+  text-align: center;
+}
+
+.rules-flow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 24px 0;
+}
+
+.rule-tile {
+  border: 1px solid rgba(111, 154, 190, 0.34);
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(10, 28, 45, 0.72);
+}
+
+.rule-tile h2 {
+  margin: 0 0 10px;
+  font-size: 1.08rem;
+}
+
+.rule-tile p {
+  margin: 0 0 10px;
+  color: #d1deeb;
+  line-height: 1.55;
+}
+
+.accent-atlas {
+  box-shadow: inset 4px 0 0 #66c7ff;
+}
+
+.accent-meridian {
+  box-shadow: inset 4px 0 0 #ff707a;
+}
+
+.accent-concordat {
+  box-shadow: inset 4px 0 0 #ffe477;
+}
+
+.accent-neutral {
+  box-shadow: inset 4px 0 0 #c8c2b5;
+}
+
+.example-line {
+  font-size: 0.92rem;
+  color: #f4f7fb !important;
+}
+
+.chip {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.chip.atlas {
+  background: rgba(102, 199, 255, 0.18);
+  color: #9adaff;
+  border: 1px solid rgba(102, 199, 255, 0.58);
+}
+
+.control-demo {
+  display: inline-flex;
+  width: 54px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  vertical-align: middle;
+}
+
+.control-demo i {
+  width: 44px;
+  border-radius: inherit;
+  background: #ffe477;
+}
+
+.fatigue-example {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px 0 10px;
+  border-radius: 50%;
+}
+
+.fatigue-example.low { background: #62d296; }
+.fatigue-example.mid { background: #f1ca55; }
+.fatigue-example.high { background: #e85c5c; }
+
+.rules-legend-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 26px;
+  padding: 14px;
+  border: 1px solid rgba(111, 154, 190, 0.28);
+  border-radius: 16px;
+  background: rgba(5, 18, 31, 0.52);
+  color: #d7e5f4;
+}
+
+.legend-square {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.legend-square.atlas { background: #2f86d5; }
+.legend-square.meridian { background: #c74242; }
+.legend-square.concordat { background: #d9b83f; }
+.legend-square.neutral { background: #b4b0a3; }
+
+.fracture-inline {
+  color: #ffd447;
+  margin-right: 4px;
+}
+
+.control-wash {
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.control-code {
+  font-size: 0.72em;
+  font-weight: 950;
+  paint-order: stroke;
+  stroke: #071426;
+  stroke-width: 3.4;
+}
+
+.control-percent {
+  fill: #edf7ff;
+  font-size: 0.66em;
+  font-weight: 900;
+  paint-order: stroke;
+  stroke: #071426;
+  stroke-width: 3;
+}
+
+.control-meter-bg,
+.control-meter-fill {
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.control-meter-bg {
+  stroke: rgba(231, 240, 250, 0.28);
+  stroke-width: 4;
+}
+
+.control-meter-fill {
+  stroke-width: 4;
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.legend-meter {
+  width: 22px;
+  height: 7px;
+  border-radius: 999px;
+  display: inline-block;
+  background: linear-gradient(90deg, #66c7ff 68%, rgba(255, 255, 255, 0.18) 68%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 780px) {
+  .rules-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .start-card,
+  .rules-card {
+    padding: 24px;
+  }
 }
