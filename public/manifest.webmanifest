@@ -1,20 +1,13 @@
 {
-  "name": "Сфера влияния",
-  "short_name": "Сфера",
-  "description": "Пошаговая стратегия о борьбе вымышленных сверхдержав за информационное влияние.",
-  "start_url": ".",
-  "scope": ".",
-  "display": "standalone",
-  "orientation": "landscape",
-  "background_color": "#07131f",
-  "theme_color": "#0f2235",
-  "icons": [
-    {
-      "src": "./app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ],
-  "categories": ["games", "strategy"]
+  "name":"Сферы влияния — остров Элион",
+  "short_name":"Сферы",
+  "description":"Привлеките 8 из 12 городов за 15 ходов на настоящем 3D-острове.",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "orientation":"any",
+  "background_color":"#142b32",
+  "theme_color":"#18333b",
+  "icons":[{"src":"./app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "categories":["games","strategy"]
 }

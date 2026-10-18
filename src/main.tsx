@@ -9,10 +9,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 );
 
+// The public game previously registered this URL, so keep updates at the same scope.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      // The game remains fully playable if the browser blocks service workers.
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{
+      // Saving and gameplay also work when service workers are unavailable.
     });
   });
 }

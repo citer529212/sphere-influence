@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+async function load(path){const output=await build({entryPoints:[path],bundle:true,platform:'node',format:'esm',write:false});return import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);}
+const {challengeUrl,parseSharedChallenge,challengeText,compareChallenge}=await load('src/game/challenge.ts');
+const {createQuickGame,RULESET_VERSION}=await load('src/game/quickGame.ts');
+const game=createQuickGame('2026-10-18');game.result='win';game.turn=7;game.trust=62;
+const url=challengeUrl('https://example.com/game/?unrelated=1#old',game),parsed=parseSharedChallenge(new URL(url).search);
+assert.equal(new URL(url).pathname,'/game/');assert.equal(new URL(url).hash,'');assert.equal(new URL(url).searchParams.get('rules'),RULESET_VERSION);
+assert.deepEqual(parsed,{seed:game.seed,unsupported:false,goal:{seed:game.seed,turns:7,trust:62}});
+assert.deepEqual(createQuickGame(parsed.seed),createQuickGame(game.seed),'Shared code must reproduce identical starting conditions');
+assert.match(compareChallenge({...game,turn:6},parsed.goal),/побили/);
+assert.match(compareChallenge({...game,trust:63},parsed.goal),/побили/);
+assert.match(compareChallenge(game,parsed.goal),/повторили/);
+assert.match(compareChallenge({...game,turn:8},parsed.goal),/попробуйте/);
+assert.equal(parseSharedChallenge('?challenge=2026-10-18&rules=999&beat=7&trust=62').unsupported,true);
+assert.equal(parseSharedChallenge('?challenge=2026-10-18&rules=999&beat=7&trust=62').goal,null);
+for(const query of ['?challenge=bad%20code','?challenge=x&beat=-2&trust=50','?challenge=x&beat=16&trust=50','?challenge=x&beat=3&trust=101','?challenge=x&beat=3&trust=oops'])assert.equal(parseSharedChallenge(query).goal,null);
+assert.ok(!challengeText('http://127.0.0.1:5174/',game).includes('127.0.0.1'));
+assert.ok(challengeText('https://example.com/game/',game).includes(url));
+console.log('Challenge checks passed: same starting state, versioned URL, score limits, tie-break and localhost handling.');
