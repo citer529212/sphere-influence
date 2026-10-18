@@ -5,7 +5,7 @@ export const REALMS:Record<FactionId,{name:string;ruler:string;title:string;cult
  concordat:{name:'Жёлтый Конкорданс',ruler:'Царица Амина',title:'Голос совета',culture:'Африканская конфедерация · союз корон и общин',color:'#f3cf62',symbol:'♚',quote:'«Союз крепок, пока слышен каждый голос».',privilege:'Совет общин: базовый доход 5 вместо 4.',drawback:'Цена согласия: кампания отнимает 4 доверия вместо 3.',mediaCost:5,campaign:0,fatigue:10,trustCost:4,protection:10,income:5}
 };
 export const FACTION_IDS: FactionId[]=['atlas','meridian','concordat'];
-export const CITY_CLIMATES=['polar','polar','temperate','arid','temperate','temperate','temperate','temperate','polar','temperate','tropical','temperate'] as const;
+export const CITY_CLIMATES=['polar','polar','temperate','arid','temperate','temperate','temperate','temperate','polar','temperate','tropical','temperate','temperate','temperate','temperate','arid'] as const;
 export const CLIMATE_NAMES={polar:'Полярный',temperate:'Умеренный',arid:'Засушливый',tropical:'Тропический'};
 export const SEASONS=['Весна','Лето','Осень','Зима'];
 export function season(turn:number):number{return Math.floor((turn-1)/2)%4;}

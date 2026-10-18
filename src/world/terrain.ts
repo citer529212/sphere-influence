@@ -20,7 +20,7 @@ export function coastDistance(x:number,z:number):number {
   return best;
 }
 export function isNeutralLand(x:number,z:number):boolean {return polygons.some(p=>p.faction==='neutral'&&x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ&&polygonDistance(x,z,p)>0);}
-const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i]))];
+const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i])),...polygons.filter(p=>p.faction==='neutral')];
 export const CITY_SITES=chosen.map(poly=>{
   let best=new THREE.Vector2(),depth=-Infinity;
   for(let x=poly.minX;x<poly.maxX;x+=.3)for(let z=poly.minZ;z<poly.maxZ;z+=.3){const d=polygonDistance(x,z,poly);if(d>depth){depth=d;best.set(x,z);}}
@@ -113,7 +113,7 @@ export function ribbon(points: THREE.Vector3[],width:number): THREE.BufferGeomet
 }
 export function roadPaths(): THREE.Vector3[][] {
   const paths:THREE.Vector3[][]=[];
-  CITY_SITES.forEach((site,i)=>{
+  CITY_SITES.slice(0,12).forEach((site,i)=>{
     const start=Math.floor(i/4)*4; const adjacent=i%4<3?[i+1]:[start];
     adjacent.forEach(j=>{
       const other=CITY_SITES[j],mid=site.clone().lerp(other,.5);mid.x+=Math.sin(i+j)*.7;mid.y+=Math.cos(i+j)*.8;

@@ -1,4 +1,4 @@
-import { QuickState, controlled } from '../game/quickGame';
+import { QuickState, controlled, QUICK_TOTAL } from '../game/quickGame';
 import { MAP_LANDS } from '../world/mapContours';
 import { REALMS } from '../game/realms';
 import { CITY_SITES } from '../world/terrain';
@@ -26,7 +26,7 @@ export async function makeResultCard(game:QuickState,capture:(()=>string)|null):
   let map:string|null=null;try{map=capture?.()??null;}catch{/* An illustrated map still produces a complete card. */}
   if(map){try{const image=new Image();image.src=map;await image.decode();ctx.drawImage(image,64,220,1072,410);}catch{fallbackMap(ctx,game);}}else fallbackMap(ctx,game);
   ctx.strokeStyle='#9caa8066';ctx.lineWidth=1;ctx.strokeRect(64,220,1072,410);
-  const stats=[{value:`${controlled(game)} / 12`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
+  const stats=[{value:`${controlled(game)} / ${QUICK_TOTAL}`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
   stats.forEach((stat,i)=>{const x=64+i*367;ctx.fillStyle='#f1e2b8';ctx.font='52px Georgia';ctx.fillText(stat.value,x,704);ctx.fillStyle='#9cb9ad';ctx.font='14px Trebuchet MS';ctx.fillText(stat.label,x,734);});
   ctx.strokeStyle='#a89b6544';ctx.beginPath();ctx.moveTo(64,766);ctx.lineTo(1136,766);ctx.stroke();
   ctx.fillStyle='#ecdba8';ctx.font='27px Georgia';ctx.fillText('Сможешь собрать 8 городов быстрее?',64,810);

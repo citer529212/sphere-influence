@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FactionId } from '../game/types';
+import { ActionEvent } from '../game/quickGame';
 import { Region } from '../game/types';
-import { CITY_SITES, TERRITORIES, RIVERS, channel, isNeutralLand, coastDistance, heightAt, nearestCity, ribbon, roadPaths, terrainGeometry } from './terrain';
+import { CITY_SITES, TERRITORIES, RIVERS, channel, coastDistance, heightAt, nearestCity, ribbon, roadPaths, terrainGeometry } from './terrain';
 import { batchStatic, cityModel, FACTION_COLORS, material, sharedAssetGeometries, vegetation } from './scenery';
 import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
 
-export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId};
-export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:()=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
+export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;actionEvent?:ActionEvent|null};
+export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
-type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;};
+type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
 
 export function createWorld(container:HTMLDivElement,initial:WorldState,callbacks:Callbacks):WorldApi {
   const economy=window.matchMedia('(max-width: 600px)').matches;
@@ -57,7 +58,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   scene.add(vegetation(roads,economy));
   const labelLayer=document.createElement('div');labelLayer.className='world-labels';container.appendChild(labelLayer);
   const visuals:CityVisual[]=[];
-  initial.regions.slice(0,12).forEach((region,index)=>{
+  initial.regions.slice(0,CITY_SITES.length).forEach((region,index)=>{
     const center=CITY_SITES[index],ground=heightAt(center.x,center.y);
     const model=cityModel(region,index);model.position.set(center.x,ground,center.y);staticGroups.push(model);
     const points:THREE.Vector3[]=[];const poly=TERRITORIES[index];
@@ -75,13 +76,16 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const node=new THREE.Group();node.position.set(center.x-1.65,ground,center.y-.6);
     const mastMat=material('#b4bdb2'),tower=new THREE.Mesh(new THREE.CylinderGeometry(.045,.15,2.15,6),mastMat);tower.position.y=1.075;tower.castShadow=true;node.add(tower);
     const dish=new THREE.Mesh(new THREE.SphereGeometry(.28,10,6,0,Math.PI*2,0,Math.PI/2),mastMat);dish.position.set(.1,1.8,0);dish.rotation.z=.75;node.add(dish);scene.add(node);
-    const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
-    visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10});
+    const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
+    visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
   const urban=batchStatic(staticGroups);scene.add(urban);
   // Originals are CPU-only inputs for batching, so release their allocations as well.
   const sourceGeometries=new Set<THREE.BufferGeometry>(sharedAssetGeometries());staticGroups.forEach(g=>g.traverse(o=>{if(o instanceof THREE.Mesh)sourceGeometries.add(o.geometry);}));sourceGeometries.forEach(g=>g.dispose());
   renderer.shadowMap.needsUpdate=true;
+  let handledEvent=0;
+  let messenger:{curve:THREE.CatmullRomCurve3;line:THREE.Line<THREE.BufferGeometry,THREE.LineBasicMaterial>;orb:THREE.Mesh<THREE.SphereGeometry,THREE.MeshBasicMaterial>;start:number}|null=null;
+  const clearMessenger=()=>{if(!messenger)return;scene.remove(messenger.line,messenger.orb);messenger.line.geometry.dispose();messenger.line.material.dispose();messenger.orb.geometry.dispose();messenger.orb.material.dispose();messenger=null;};
   let state=initial,currentTime=0,announcementTimer:ReturnType<typeof setTimeout>|undefined;
   const update=(next:WorldState)=>{
     state=next;
@@ -96,7 +100,28 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
         if(next.selectedRegionId===v.id){callbacks.announce(region.infoController===(next.player??'atlas')?`${region.name} — теперь на вашей стороне`:`${region.name}: баланс влияния изменился`);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3400);}
       }
       if(reduced){v.border.material.color.copy(v.targetBorder);v.border.material.emissive.copy(v.targetBorder);v.flag.material.color.copy(v.targetFlag);}
-    });renderer.shadowMap.needsUpdate=true;
+    });
+    const event=next.actionEvent;
+    if(event&&event.id!==handledEvent){
+      handledEvent=event.id;clearMessenger();
+      const v=visuals.find(v=>v.id===event.regionId);
+      if(v){
+        v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.scale.setScalar(1);v.wave.material.color.set(event.kind==='protect'||event.kind==='blocked'?'#9de3cf':FACTION_COLORS[event.actor]);v.wave.visible=!reduced;
+        const icon=event.captured?'⚑':event.kind==='media'?'◈':event.kind==='protect'||event.kind==='blocked'?'◇':'⚑';
+        v.badge.textContent=`${icon} ${event.captured?'Город присоединился':event.kind==='media'?'Центр +1':event.kind==='blocked'?'Защищён':`+${event.amount}`}`;
+        v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[event.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');
+        if(event.kind==='media')v.buildStart=currentTime;
+        if(event.kind==='opponent'&&!reduced){
+          const sourceIndex=next.regions.findIndex(r=>r.politicalOwner===event.actor),from=CITY_SITES[Math.max(0,sourceIndex)];
+          const a=new THREE.Vector3(from.x,heightAt(from.x,from.y)+2,from.y),b=new THREE.Vector3(v.center.x,v.ground+2,v.center.y),mid=a.clone().lerp(b,.5);mid.y+=5;
+          const curve=new THREE.CatmullRomCurve3([a,mid,b]);const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));geo.setDrawRange(0,1);
+          const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:FACTION_COLORS[event.actor],transparent:true,opacity:.8}));
+          const orb=new THREE.Mesh(new THREE.SphereGeometry(.2,8,6),new THREE.MeshBasicMaterial({color:FACTION_COLORS[event.actor]}));scene.add(line,orb);messenger={curve,line,orb,start:currentTime};
+        }
+        callbacks.announce(event.text);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3000);
+      }
+    }
+    renderer.shadowMap.needsUpdate=true;
   };update(initial);
   let travel:{position:THREE.Vector3;target:THREE.Vector3}|null=null;
   let keyboardEnabled=true;const held=new Set<string>();
@@ -112,10 +137,11 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const fit=Math.max(1,1.65/(container.clientWidth/container.clientHeight));
     travel=null;controls.target.set(0,.5,0);camera.position.set(3*fit,57*fit,47*fit);controls.update();
   };
-  const focus=()=>{
-    const visual=visuals.find(v=>v.id===state.selectedRegionId);if(!visual)return;
+  const focus=(id=state.selectedRegionId,wide=false)=>{
+    const visual=visuals.find(v=>v.id===id);if(!visual)return;
     const target=new THREE.Vector3(visual.center.x,visual.ground,visual.center.y);
-    const direction=camera.position.clone().sub(controls.target).normalize().multiplyScalar(18);
+    if(container.clientWidth<600){const towardCamera=camera.position.clone().sub(controls.target);towardCamera.y=0;target.add(towardCamera.normalize().multiplyScalar(5));}
+    const direction=camera.position.clone().sub(controls.target).normalize().multiplyScalar(wide?32:22);
     travel={position:target.clone().add(direction),target};
     if(reduced){camera.position.copy(travel.position);controls.target.copy(travel.target);travel=null;controls.update();}
   };
@@ -129,7 +155,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
   const hitTest=(event:PointerEvent)=>{
     const rect=canvas.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
-    const hit=raycaster.intersectObject(terrain)[0];if(!hit||hit.point.y<.1||isNeutralLand(hit.point.x,hit.point.z)||coastDistance(hit.point.x,hit.point.z)<0)return null;
+    const hit=raycaster.intersectObject(terrain)[0];if(!hit||hit.point.y<.1||coastDistance(hit.point.x,hit.point.z)<0)return null;
     return state.regions[nearestCity(hit.point.x,hit.point.z)]?.id??null;
   };
   const active=new Set<number>();let startX=0,startY=0,multiTouch=false,lastHover:string|null=null;
@@ -164,10 +190,13 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);
       const age=currentTime-v.pulseStart;
+      if(!v.badge.hidden&&currentTime-v.effectStart>2.8)v.badge.hidden=true;
+      const buildAge=currentTime-v.buildStart;v.node.scale.setScalar(reduced||buildAge>1?1:Math.max(.05,Math.min(1,buildAge*1.4)));
       if(v.wave.visible){v.wave.scale.setScalar(1+age*1.7);v.wave.material.opacity=Math.max(0,(1-age/2)*.6);if(age>=2)v.wave.visible=false;}
       if(!reduced){const positions=v.flag.geometry.attributes.position;for(let i=0;i<positions.count;i++){const x=positions.getX(i);positions.setZ(i,Math.sin(currentTime*2.4+x*6+v.center.x)*x*.16);}positions.needsUpdate=true;}
-      if(rendered%2===0){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.transform=`translate(-50%,0)`;v.label.style.left=`${(projected.x*.5+.5)*container.clientWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*container.clientHeight}px`;v.label.hidden=(container.clientWidth<600&&v.id!==state.selectedRegionId)||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
+      if(rendered%2===0){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.transform=`translate(-50%,0)`;v.label.style.left=`${(projected.x*.5+.5)*container.clientWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*container.clientHeight}px`;v.label.hidden=(container.clientWidth<600&&v.id!==state.selectedRegionId&&!(state.actionEvent?.regionId===v.id&&currentTime-v.effectStart<2.8))||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
     });
+    if(messenger){const t=Math.min(1,(currentTime-messenger.start)/1.25);messenger.orb.position.copy(messenger.curve.getPoint(t));messenger.line.geometry.setDrawRange(0,Math.max(2,Math.floor(t*64)));messenger.line.material.opacity=1-t*.6;if(t===1)clearMessenger();}
     renderer.render(scene,camera);rendered++;
     if(elapsed<100&&rendered>20){totalFrameMs+=elapsed;profileFrames++;}
     if(import.meta.env.DEV&&rendered===140)console.info('[WorldScene] Rendering profile',JSON.stringify({drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,averageFrameMs:Math.round(totalFrameMs/Math.max(1,profileFrames)*10)/10,quality:economy?'economy':'standard'}));
@@ -188,7 +217,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const setInteraction=(enabled:boolean)=>{controls.enabled=enabled;canvas.style.touchAction=enabled?'none':'pan-y';active.clear();multiTouch=false;held.clear();};
   return {update,reset,focus,capture,setInteraction,setKeyboard:enabled=>{keyboardEnabled=enabled;held.clear();},zoom:factor=>{travel=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();},dispose:()=>{
     window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);
-    cancelAnimationFrame(frame);clearTimeout(announcementTimer);resize.disconnect();observer.disconnect();controls.removeEventListener('start',stopTravel);controls.dispose();
+    clearMessenger();cancelAnimationFrame(frame);clearTimeout(announcementTimer);resize.disconnect();observer.disconnect();controls.removeEventListener('start',stopTravel);controls.dispose();
     canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',cancel);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('webglcontextlost',contextLost);
     const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();scene.traverse(object=>{if(object instanceof THREE.Mesh||object instanceof THREE.Line){geometries.add(object.geometry);(Array.isArray(object.material)?object.material:[object.material]).forEach(m=>materials.add(m));if(object instanceof THREE.InstancedMesh)object.dispose();}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.shadow.dispose();(water.material.uniforms.shore.value as THREE.Texture).dispose();renderer.dispose();canvas.remove();labelLayer.remove();
   }};

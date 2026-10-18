@@ -4,7 +4,7 @@ const bundle = await build({ entryPoints: ['src/game/quickGame.ts'], bundle: tru
 const { createQuickGame, quickAction, quickEndTurn, controlled, actionError } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const initial = createQuickGame('2026-10-17');
 assert.deepEqual(initial, createQuickGame('2026-10-17'));
-assert.equal(initial.regions.length, 12);
+assert.equal(initial.regions.length, 16);
 assert.equal(controlled(initial), 4);
 const media = quickAction(initial, initial.regions[0].id, 'media');
 assert.equal(media.influence, 8);

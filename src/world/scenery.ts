@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CITY_SITES, climateAt, isNeutralLand, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
 import { Region } from '../game/types';
 
-export const FACTION_COLORS = { atlas:'#4baff5',meridian:'#ed6259',concordat:'#efd05d',neutral:'#939c98',contested:'#c2c7b1' };
+export const FACTION_COLORS = { atlas:'#4baff5',meridian:'#ed6259',concordat:'#efd05d',neutral:'#939c98',contested:'#939c98' };
 export const material = (color:THREE.ColorRepresentation,roughness=.88) => new THREE.MeshStandardMaterial({color,roughness});
 const box = new THREE.BoxGeometry(1,1,1);
 const cylinder = new THREE.CylinderGeometry(1,1,1,12);
@@ -29,7 +29,11 @@ export function cityModel(region:Region,index:number):THREE.Group {
     piece(group,box,windows,x-.04,h*.6,z+w*.46,.08,.12,.015);
     if(i%4===0)piece(group,box,trim,x,h+.1,z,w*.9,.12,w*.9,a);
   }
-  if(style==='atlas'){
+  if(style==='neutral'){
+    const stone=material('#939c98'),roof=material('#545f62');
+    piece(group,cylinder,stone,0,.5,0,.65,1,.65);piece(group,cone,roof,0,1.25,0,.78,.55,.78,Math.PI/4);
+    for(const x of [-.8,.8]){piece(group,box,stone,x,.25,.2,.4,.5,.45);piece(group,cone,roof,x,.65,.2,.38,.3,.38);}
+  }else if(style==='atlas'){
     piece(group,box,walls,0,.4,0,1.05,.8,.75);
     piece(group,box,trim,0,.85,0,1.25,.12,.9);
     piece(group,dome,roof,0,.96,0,.53,.56,.53);

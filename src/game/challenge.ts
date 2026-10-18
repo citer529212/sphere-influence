@@ -1,6 +1,6 @@
 import { FactionId } from './types';
 import { REALMS, FACTION_IDS } from './realms';
-import { controlled, QUICK_LIMIT, QuickState, RULESET_VERSION } from './quickGame';
+import { controlled, QUICK_LIMIT, QuickState, RULESET_VERSION, QUICK_TOTAL } from './quickGame';
 
 export type ChallengeGoal={seed:string;turns:number;trust:number;player?:FactionId};
 export type SharedChallenge={seed?:string;player?:FactionId;goal:ChallengeGoal|null;unsupported:boolean};
@@ -24,7 +24,7 @@ export function isLocalAddress(address:string):boolean {
 }
 export function challengeText(base:string,game:QuickState):string {
   const label=game.result==='win'?'Победа':game.result==='loss'?'Партия завершена':'Мой результат';
-  return `Сферы влияния · ${game.seed}\n${REALMS[game.player].name} · ${REALMS[game.player].ruler}\n${label}: ${controlled(game)}/12 городов. Ход: ${game.turn}. Доверие: ${game.trust}%.\nСможешь собрать 8 городов быстрее? При равном ходе выигрывает большее доверие.\n${isLocalAddress(base)?`Код карты: ${game.seed} · Правила ${RULESET_VERSION}`:challengeUrl(base,game)}`;
+  return `Сферы влияния · ${game.seed}\n${REALMS[game.player].name} · ${REALMS[game.player].ruler}\n${label}: ${controlled(game)}/${QUICK_TOTAL} городов. Ход: ${game.turn}. Доверие: ${game.trust}%.\nСможешь собрать 8 городов быстрее? При равном ходе выигрывает большее доверие.\n${isLocalAddress(base)?`Код карты: ${game.seed} · Правила ${RULESET_VERSION}`:challengeUrl(base,game)}`;
 }
 export function compareChallenge(game:QuickState,goal:ChallengeGoal|null):string|null {
   if(!goal||goal.seed!==game.seed||game.result!=='win')return null;
