@@ -7,7 +7,7 @@ assert.deepEqual(initial, createQuickGame('2026-10-17'));
 assert.equal(initial.regions.length, 12);
 assert.equal(controlled(initial), 4);
 const media = quickAction(initial, initial.regions[0].id, 'media');
-assert.equal(media.influence, 7);
+assert.equal(media.influence, 8);
 assert.equal(media.actions, 1);
 assert.equal(initial.influence, 12, 'Actions must not mutate prior state');
 assert.ok(actionError(media, media.regions[0], 'media'), 'Duplicate centers must be blocked');
@@ -15,7 +15,7 @@ assert.ok(actionError(initial, initial.regions[7], 'media'), 'Rival cities canno
 const next = quickEndTurn(media);
 assert.equal(next.turn, 2);
 assert.equal(next.actions, 2);
-assert.equal(next.influence, 12, 'Income includes the active media center');
+assert.equal(next.influence, 13, 'Income includes the active media center');
 const protectedGame = quickAction(initial, initial.regions[0].id, 'protect');
 assert.equal(protectedGame.trust, 66);
 assert.equal(protectedGame.regions[0].factCheckShield.atlas, 1);

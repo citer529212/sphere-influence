@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CITY_SITES, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
+import { CITY_SITES, climateAt, isNeutralLand, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
 import { Region } from '../game/types';
 
-export const FACTION_COLORS = { atlas:'#69bfe0',meridian:'#d47967',concordat:'#dbc476',neutral:'#bec8a6',contested:'#c2c7b1' };
+export const FACTION_COLORS = { atlas:'#4baff5',meridian:'#ed6259',concordat:'#efd05d',neutral:'#939c98',contested:'#c2c7b1' };
 export const material = (color:THREE.ColorRepresentation,roughness=.88) => new THREE.MeshStandardMaterial({color,roughness});
 const box = new THREE.BoxGeometry(1,1,1);
 const cylinder = new THREE.CylinderGeometry(1,1,1,12);
@@ -81,7 +81,7 @@ export function vegetation(roads:THREE.Vector3[][],economy:boolean):THREE.Group 
   const roadSamples=roads.flatMap(path=>path.filter((_,i)=>i%3===0));
   for(let i=0;i<6500&&treePositions.length<(economy?460:1050);i++){
     const x=(random()-.5)*64,z=(random()-.5)*36,d=coastDistance(x,z);
-    if(d<1.5||CITY_SITES.some(p=>Math.hypot(p.x-x,p.y-z)<2.5))continue;
+    if(climateAt(x,z)==='arid'||isNeutralLand(x,z)||d<.8||CITY_SITES.some(p=>Math.hypot(p.x-x,p.y-z)<2.5))continue;
     if(.5+Math.sin(x*.8)*Math.cos(z*.7)*.5<.35)continue;
     if(channel(x,z).distance<.8||roadSamples.some(p=>(p.x-x)**2+(p.z-z)**2<.15))continue;
     const y=heightAt(x,z);if(y>3.3||y<.35)continue;
@@ -96,7 +96,7 @@ export function vegetation(roads:THREE.Vector3[][],economy:boolean):THREE.Group 
   treePositions.forEach((p,i)=>{
     rotation.setFromAxisAngle(yAxis,p.angle);size.setScalar(p.size);
     matrix.compose(new THREE.Vector3(p.x,p.y+.12,p.z),rotation,size);trunks.setMatrixAt(i,matrix);crowns.setMatrixAt(i,matrix);
-    crowns.setColorAt(i,new THREE.Color().setHSL(.28+random()*.06,.2+random()*.13,.22+random()*.12));
+    crowns.setColorAt(i,climateAt(p.x,p.z)==='polar'?new THREE.Color('#c0d4d1'):new THREE.Color().setHSL(.28+random()*.06,.2+random()*.13,.22+random()*.12));
   });crowns.castShadow=true;crowns.receiveShadow=true;group.add(trunks,crowns);
   const stones:THREE.Matrix4[]=[];
   for(let i=0;i<250;i++){

@@ -1,47 +1,44 @@
 import * as THREE from 'three';
 
-export const CITY_SITES = Array.from({ length: 12 }, (_, i) => new THREE.Vector2(
-  (-300 + (i % 4) * 200 + Math.sin(i * 2.3) * 32) * .065,
-  (-160 + Math.floor(i / 4) * 160 + Math.cos(i * 1.7) * 25) * .065
-));
+import { MAP_LANDS } from './mapContours';
 export function randomGenerator(seed = 72): () => number {
   return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 }
 const smooth = THREE.MathUtils.smoothstep;
-export function coastRadius(a: number): number { return 1 + .055 * Math.sin(a * 7) + .035 * Math.cos(a * 11) + .025 * Math.sin(a * 3); }
-export function coastDistance(x: number, z: number): number {
-  const nx = x / 31, nz = z / 17;
-  return (coastRadius(Math.atan2(nz, nx)) - Math.hypot(nx, nz)) * 17;
+const polygons=MAP_LANDS.map(land=>({faction:land.faction,points:land.points.map(([x,z])=>new THREE.Vector2(x,z)),minX:Math.min(...land.points.map(p=>p[0])),maxX:Math.max(...land.points.map(p=>p[0])),minZ:Math.min(...land.points.map(p=>p[1])),maxZ:Math.max(...land.points.map(p=>p[1]))}));
+function polygonDistance(x:number,z:number,poly:typeof polygons[number]):number {
+  let inside=false,distance=Infinity;
+  poly.points.forEach((a,i)=>{const b=poly.points[(i+1)%poly.points.length];
+    if((a.y>z)!==(b.y>z)&&x<(b.x-a.x)*(z-a.y)/(b.y-a.y)+a.x)inside=!inside;
+    const dx=b.x-a.x,dz=b.y-a.y,t=THREE.MathUtils.clamp(((x-a.x)*dx+(z-a.y)*dz)/(dx*dx+dz*dz||1),0,1);
+    distance=Math.min(distance,Math.hypot(x-a.x-t*dx,z-a.y-t*dz));
+  });return inside?distance:-distance;
 }
-export const COAST = Array.from({ length: 160 }, (_, i) => {
-  const a = i / 160 * Math.PI * 2, r = coastRadius(a);
-  return new THREE.Vector2(Math.cos(a) * 31 * r, Math.sin(a) * 17 * r);
+export function coastDistance(x:number,z:number):number {
+  let best=-100;
+  for(const poly of polygons){const boxDistance=Math.hypot(Math.max(poly.minX-x,0,x-poly.maxX),Math.max(poly.minZ-z,0,z-poly.maxZ));if(boxDistance>Math.max(0,-best))continue;best=Math.max(best,polygonDistance(x,z,poly));}
+  return best;
+}
+export function isNeutralLand(x:number,z:number):boolean {return polygons.some(p=>p.faction==='neutral'&&x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ&&polygonDistance(x,z,p)>0);}
+const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i]))];
+export const CITY_SITES=chosen.map(poly=>{
+  let best=new THREE.Vector2(),depth=-Infinity;
+  for(let x=poly.minX;x<poly.maxX;x+=.3)for(let z=poly.minZ;z<poly.maxZ;z+=.3){const d=polygonDistance(x,z,poly);if(d>depth){depth=d;best.set(x,z);}}
+  return best;
 });
-export const TERRITORIES = CITY_SITES.map((site, index) => {
-  let points = COAST.map(p => p.clone());
-  CITY_SITES.forEach((other, j) => {
-    if (index === j) return;
-    const normal = other.clone().sub(site), limit = (other.lengthSq() - site.lengthSq()) / 2;
-    const clipped: THREE.Vector2[] = [];
-    points.forEach((a, i) => {
-      const b = points[(i + 1) % points.length], da = a.dot(normal) - limit, db = b.dot(normal) - limit;
-      if (da <= 0) clipped.push(a);
-      if (da * db < 0) clipped.push(a.clone().lerp(b, da / (da - db)));
-    });
-    points = clipped;
-  });
-  return points;
-});
-
+export const TERRITORIES=chosen.map(p=>p.points);
+export const COAST=polygons.flatMap(p=>p.points);
+export function climateAt(x:number,z:number):'polar'|'temperate'|'arid'|'tropical' {
+  if(z< -10)return 'polar';
+  if(z>7)return x>15?'tropical':'arid';
+  return 'temperate';
+}
 export type RiverPoint = { x: number; z: number; bed: number };
 function river(points: number[][]): RiverPoint[] {
   const curve = new THREE.CatmullRomCurve3(points.map(([x, z, bed]) => new THREE.Vector3(x, bed, z)));
   return curve.getPoints(100).map(p => ({ x: p.x, z: p.z, bed: p.y }));
 }
-export const RIVERS = [
-  river([[0,-5,1.4],[1,-2,1.15],[-.7,2,.9],[.5,5,.65],[-1,9,.35],[1,13,.06],[3,18,-.15]]),
-  river([[-8,-5,1.2],[-12,-4,.95],[-15,-1,.7],[-17,3,.45],[-23,5,.1],[-31,7,-.15]])
-];
+export const RIVERS = CITY_SITES.filter((_,i)=>i===2||i===5||i===9).map(p=>river([[p.x,p.y-1.5,1.1],[p.x+.7,p.y,.8],[p.x+1,p.y+1.5,.45],[p.x+2,p.y+3,.1],[p.x+3,p.y+4,-.15]]));
 export function channel(x: number, z: number): { distance: number; bed: number } {
   let distance = Infinity, bed = 0;
   for (const path of RIVERS) for (let i = 1; i < path.length; i++) {
@@ -64,7 +61,7 @@ function rawHeight(x: number,z: number): number {
     const dx=(x-px)/sx,dz=(z-pz)/sz;
     h += Math.exp(-(dx*dx+dz*dz)*.65)*height*(.83+.17*Math.sin(x*2+z*1.3));
   }
-  return -.3 + smooth(d,-.7,2.5)*h;
+  return -.3 + smooth(d,-.25,1.4)*h;
 }
 const cityLevels = CITY_SITES.map(p => Math.max(.9,rawHeight(p.x,p.y)));
 export function heightAt(x: number, z: number): number {
@@ -84,16 +81,21 @@ export function nearestCity(x: number,z: number): number {
   return index;
 }
 export function terrainGeometry(): THREE.BufferGeometry {
-  const geo = new THREE.PlaneGeometry(76,48,190,120); geo.rotateX(-Math.PI/2);
+  const geo = new THREE.PlaneGeometry(76,48,260,165); geo.rotateX(-Math.PI/2);
   const positions=geo.attributes.position, colors:number[]=[];
   const grass=new THREE.Color('#77945d'), forest=new THREE.Color('#486f50'), sand=new THREE.Color('#c8bb89'), rock=new THREE.Color('#8d9183'), snow=new THREE.Color('#d9ded3');
   for(let i=0;i<positions.count;i++){
     const x=positions.getX(i),z=positions.getZ(i),h=heightAt(x,z);positions.setY(i,h);
+    const climate=climateAt(x,z);
     const d=coastDistance(x,z), c=grass.clone().lerp(forest,THREE.MathUtils.clamp(.35+noise(x*.6,z*.6),0,1));
+    if(climate==='polar')c.lerp(snow,.72);
+    if(climate==='arid')c.lerp(new THREE.Color('#c3a36c'),.8);
+    if(climate==='tropical')c.lerp(forest,.7);
     if(d<2)c.lerp(sand,1-smooth(d,.4,2));
     if(h>2.2)c.lerp(rock,smooth(h,2.2,4.2));
     if(h>4.1)c.lerp(snow,smooth(h,4.1,5.8));
     if(channel(x,z).distance<.85)c.lerp(forest,.25);
+    if(isNeutralLand(x,z)&&d>0)c.set('#939c98').multiplyScalar(.85+Math.min(h,3)*.06);
     c.multiplyScalar(.93+.07*Math.sin(x*4.1+z*3.3)); colors.push(c.r,c.g,c.b);
   }
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();return geo;
@@ -112,11 +114,11 @@ export function ribbon(points: THREE.Vector3[],width:number): THREE.BufferGeomet
 export function roadPaths(): THREE.Vector3[][] {
   const paths:THREE.Vector3[][]=[];
   CITY_SITES.forEach((site,i)=>{
-    const adjacent=[...(i%4<3?[i+1]:[]),...(i<8?[i+4]:[])];
+    const start=Math.floor(i/4)*4; const adjacent=i%4<3?[i+1]:[start];
     adjacent.forEach(j=>{
       const other=CITY_SITES[j],mid=site.clone().lerp(other,.5);mid.x+=Math.sin(i+j)*.7;mid.y+=Math.cos(i+j)*.8;
       const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(site.x,0,site.y),new THREE.Vector3(mid.x,0,mid.y),new THREE.Vector3(other.x,0,other.y)]);
-      paths.push(curve.getPoints(50).map(p=>{const river=channel(p.x,p.z);p.y=Math.max(heightAt(p.x,p.z)+.045,river.distance<.6?river.bed+.24:-99);return p;}));
+      const samples=curve.getPoints(50);let segment:THREE.Vector3[]=[];for(const p of samples){if(coastDistance(p.x,p.z)<0){if(segment.length>1)paths.push(segment);segment=[];continue;}const water=channel(p.x,p.z);p.y=Math.max(heightAt(p.x,p.z)+.045,water.distance<.6?water.bed+.24:-99);segment.push(p);}if(segment.length>1)paths.push(segment);
     });
   });return paths;
 }

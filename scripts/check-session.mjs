@@ -11,7 +11,7 @@ assert.equal(startSession(storage,undefined,'2026-10-18').session.game.seed,'202
 const today=startSession(storage,'2026-10-18','2026-10-18');assert.equal(today.restored,false);assert.equal(today.session.game.seed,'2026-10-18');
 saveSession(storage,today.session.game,today.session.selectedId);assert.equal(loadSession(storage,'2026-10-17').game.turn,2,'Maps keep independent saves');
 savePreferences(storage,{sound:false,tutorialStep:2});assert.deepEqual(loadPreferences(storage),{sound:false,tutorialStep:2});
-const key='spheres.session.v1:2026-10-17';const valid=values.get(key);
+const key='spheres.session.v2:2026-10-17';const valid=values.get(key);
 for(const mutate of [v=>v.version=99,v=>v.game.actions=8,v=>v.game.regions[0].influence.atlas=-1,v=>v.game.regions[0].infoController='meridian',v=>v.game.regions.pop(),v=>v.game.result='win']){
  const bad=JSON.parse(valid);mutate(bad);values.set(key,JSON.stringify(bad));assert.equal(loadSession(storage,'2026-10-17'),null,'Invalid saves must be rejected');
 }

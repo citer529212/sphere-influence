@@ -3,8 +3,8 @@ import { createQuickGame, dailySeed, QuickState, controlled, QUICK_GOAL, QUICK_L
 export interface StorageLike { getItem(key:string):string|null; setItem(key:string,value:string):void; }
 export type Session = { game:QuickState; selectedId:string; savedAt:string };
 export type Preferences = { sound:boolean; tutorialStep:number };
-const PREFIX='spheres.session.v1:';
-const LAST='spheres.last.v1';
+const PREFIX='spheres.session.v2:';
+const LAST='spheres.last.v2';
 const PREFS='spheres.preferences.v1';
 const validSeed=(seed:unknown):seed is string=>typeof seed==='string'&&/^[a-zA-Z0-9-]{1,40}$/.test(seed);
 const integer=(n:unknown,min:number,max:number):n is number=>typeof n==='number'&&Number.isInteger(n)&&n>=min&&n<=max;
@@ -30,13 +30,14 @@ export function loadSession(storage:StorageLike|null,seed:string):Session|null {
     if(saved.result!==null&&saved.result!=='win'&&saved.result!=='loss')return null;
     if(!Array.isArray(saved.regions)||saved.regions.length!==12||!Array.isArray(saved.log)||saved.log.length>8||!saved.log.every(line=>typeof line==='string'&&line.length<=500))return null;
     // Rebuild immutable names, types and ownership from the current scenario.
-    const game=createQuickGame(seed);
+    if(!factions.includes(saved.player as typeof factions[number]))return null;
+    const game=createQuickGame(seed,saved.player as typeof factions[number]);
     for(let i=0;i<game.regions.length;i++) {
       const source:unknown=saved.regions[i],target=game.regions[i];
       if(!object(source)||source.id!==target.id||!object(source.influence)||!object(source.mediaNodes)||!object(source.factCheckShield))return null;
       if(!integer(source.fatigue,0,100)||!['atlas','meridian','concordat','contested'].includes(String(source.infoController)))return null;
       for(const faction of factions){
-        if(!integer(source.influence[faction],0,100)||!integer(source.mediaNodes[faction],0,faction==='atlas'?1:0)||!integer(source.factCheckShield[faction],0,faction==='atlas'?1:0))return null;
+        if(!integer(source.influence[faction],0,100)||!integer(source.mediaNodes[faction],0,faction===game.player?1:0)||!integer(source.factCheckShield[faction],0,faction===game.player?1:0))return null;
         target.influence[faction]=source.influence[faction];target.mediaNodes[faction]=source.mediaNodes[faction];target.factCheckShield[faction]=source.factCheckShield[faction];
       }
       const ranked=[...factions].sort((a,b)=>target.influence[b]-target.influence[a]);

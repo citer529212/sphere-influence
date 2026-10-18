@@ -27,7 +27,7 @@ export const FACTIONS: Record<FactionId, Faction> = {
   },
   concordat: {
     id: 'concordat',
-    name: 'Золотой Конкордат',
+    name: 'Жёлтый Конкорданс',
     color: '#a8a63a',
     border: '#f6d84a',
     style: 'Техплатформы, культура, образование',

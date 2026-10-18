@@ -6,7 +6,7 @@ const {createQuickGame,RULESET_VERSION}=await load('src/game/quickGame.ts');
 const game=createQuickGame('2026-10-18');game.result='win';game.turn=7;game.trust=62;
 const url=challengeUrl('https://example.com/game/?unrelated=1#old',game),parsed=parseSharedChallenge(new URL(url).search);
 assert.equal(new URL(url).pathname,'/game/');assert.equal(new URL(url).hash,'');assert.equal(new URL(url).searchParams.get('rules'),RULESET_VERSION);
-assert.deepEqual(parsed,{seed:game.seed,unsupported:false,goal:{seed:game.seed,turns:7,trust:62}});
+assert.deepEqual(parsed,{seed:game.seed,player:'atlas',unsupported:false,goal:{seed:game.seed,turns:7,trust:62,player:'atlas'}});
 assert.deepEqual(createQuickGame(parsed.seed),createQuickGame(game.seed),'Shared code must reproduce identical starting conditions');
 assert.match(compareChallenge({...game,turn:6},parsed.goal),/побили/);
 assert.match(compareChallenge({...game,trust:63},parsed.goal),/побили/);
