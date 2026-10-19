@@ -1,23 +1,12 @@
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-async function bundle(path){const output=await build({entryPoints:[path],bundle:true,platform:'node',format:'esm',write:false});return import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);}
-const {saveSession,loadSession,startSession,savePreferences,loadPreferences}=await bundle('src/game/session.ts');
-const {createQuickGame,quickAction,quickEndTurn}=await bundle('src/game/quickGame.ts');
-const values=new Map();const storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
-let game=createQuickGame('2026-10-17');game=quickAction(game,game.regions[0].id,'media');game=quickEndTurn(game);
-assert.ok(saveSession(storage,game,game.regions[4].id));
-const loaded=loadSession(storage,game.seed);assert.deepEqual(loaded.game,game);assert.equal(loaded.selectedId,game.regions[4].id);
-assert.equal(startSession(storage,undefined,'2026-10-18').session.game.seed,'2026-10-17','An unfinished game survives a change of date');
-const today=startSession(storage,'2026-10-18','2026-10-18');assert.equal(today.restored,false);assert.equal(today.session.game.seed,'2026-10-18');
-saveSession(storage,today.session.game,today.session.selectedId);assert.equal(loadSession(storage,'2026-10-17').game.turn,2,'Maps keep independent saves');
-savePreferences(storage,{sound:false,tutorialStep:2});assert.deepEqual(loadPreferences(storage),{sound:false,tutorialStep:2});
-const key='spheres.session.v3:2026-10-17';const valid=values.get(key);
-for(const mutate of [v=>v.version=99,v=>v.game.actions=8,v=>v.game.regions[0].influence.atlas=-1,v=>v.game.regions[0].infoController='meridian',v=>v.game.regions.pop(),v=>v.game.result='win']){
- const bad=JSON.parse(valid);mutate(bad);values.set(key,JSON.stringify(bad));assert.equal(loadSession(storage,'2026-10-17'),null,'Invalid saves must be rejected');
-}
-values.set(key,'broken json');assert.equal(loadSession(storage,'2026-10-17'),null);
-values.set(key,valid);const canonical=JSON.parse(valid);canonical.game.regions[0].name='Changed by stored data';values.set(key,JSON.stringify(canonical));assert.equal(loadSession(storage,'2026-10-17').game.regions[0].name,game.regions[0].name,'Static scenario data comes from the game');
-assert.equal(saveSession(null,game,game.regions[0].id),false);assert.equal(loadSession(null,game.seed),null);
-const blocked={getItem(){throw new Error('Blocked');},setItem(){throw new Error('Full');}};
-assert.equal(saveSession(blocked,game,game.regions[0].id),false);assert.equal(startSession(blocked,undefined,'2026-10-18').session.game.seed,'2026-10-18');
-console.log('Session checks passed: round-trip, selected city, date rollover, independent maps, preferences, malformed saves and unavailable storage.');
+async function load(path){const b=await build({entryPoints:[path],bundle:true,platform:'node',format:'esm',write:false});return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));}
+const api=await load('src/game/session.ts'),g=await load('src/game/quickGame.ts');const values=new Map(),storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)};
+for(const difficulty of ['discovery','standard','expert']){let game=g.createQuickGame('same-map','meridian',difficulty);game=g.quickEndTurn(game);assert.ok(api.saveSession(storage,game,game.regions[5].id));assert.deepEqual(api.loadSession(storage,game.seed,difficulty).game,game);}
+assert.equal(values.size,4,'Three difficulties keep independent saves plus last-map metadata');assert.equal(api.startSession(storage,undefined,'next-day').session.game.difficulty,'expert');
+const key='spheres.session.v4:same-map:standard',valid=values.get(key);
+for(const change of [v=>v.rules='3',v=>v.game.difficulty='expert',v=>v.game.topic='__proto__',v=>v.game.held=99,v=>v.game.actions=4,v=>v.game.rivalBudget.atlas=-1,v=>v.game.rivalTrust.atlas=101,v=>v.game.regions[0].infoController='concordat',v=>v.game.result='win']){const value=JSON.parse(valid);change(value);values.set(key,JSON.stringify(value));assert.ok(api.loadSession(storage,'same-map')===null,'Malformed saves must be rejected');}
+values.set(key,valid);const mid=api.loadSession(storage,'same-map').game;mid.held=1;mid.trust=1;api.saveSession(storage,mid,mid.regions[0].id);assert.ok(api.loadSession(storage,'same-map'),'A current decision can temporarily fall below trust after a valid previous held turn');
+api.savePreferences(storage,{sound:false,tutorialStep:2});assert.deepEqual(api.loadPreferences(storage),{sound:false,tutorialStep:2});assert.equal(api.saveSession(null,mid,''),false);
+const blocked={getItem(){throw Error('denied');},setItem(){throw Error('denied');}};assert.equal(api.startSession(blocked,undefined,'fresh').restored,false);
+console.log('Session checks passed: per-difficulty saves, AI budgets/trust, topics, held rounds, strict validation, interrupted turns and unavailable storage.');

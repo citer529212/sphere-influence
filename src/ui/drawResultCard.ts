@@ -1,5 +1,6 @@
 import { QuickState, controlled, QUICK_TOTAL } from '../game/quickGame';
 import { MAP_LANDS } from '../world/mapContours';
+import { DIFFICULTIES } from '../game/information';
 import { REALMS } from '../game/realms';
 import { CITY_SITES } from '../world/terrain';
 import { FACTION_COLORS } from '../world/scenery';
@@ -29,7 +30,7 @@ export async function makeResultCard(game:QuickState,capture:(()=>string)|null):
   const stats=[{value:`${controlled(game)} / ${QUICK_TOTAL}`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
   stats.forEach((stat,i)=>{const x=64+i*367;ctx.fillStyle='#f1e2b8';ctx.font='52px Georgia';ctx.fillText(stat.value,x,704);ctx.fillStyle='#9cb9ad';ctx.font='14px Trebuchet MS';ctx.fillText(stat.label,x,734);});
   ctx.strokeStyle='#a89b6544';ctx.beginPath();ctx.moveTo(64,766);ctx.lineTo(1136,766);ctx.stroke();
-  ctx.fillStyle='#ecdba8';ctx.font='27px Georgia';ctx.fillText('Сможешь собрать 8 городов быстрее?',64,810);
-  ctx.fillStyle='#a9c5b9';fittedText(ctx,`${REALMS[game.player].ruler} · Код карты: ${game.seed}`,64,847,1072,19,'Trebuchet MS');
+  ctx.fillStyle='#ecdba8';ctx.font='27px Georgia';ctx.fillText('Сможешь удержать информационное лидерство быстрее?',64,810);
+  ctx.fillStyle='#a9c5b9';fittedText(ctx,`${DIFFICULTIES[game.difficulty].name} · ${REALMS[game.player].ruler} · Код карты: ${game.seed}`,64,847,1072,19,'Trebuchet MS');
   return canvas.toDataURL('image/png');
 }

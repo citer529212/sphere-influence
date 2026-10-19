@@ -1,20 +1,12 @@
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-async function load(path){const output=await build({entryPoints:[path],bundle:true,platform:'node',format:'esm',write:false});return import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);}
-const {challengeUrl,parseSharedChallenge,challengeText,compareChallenge}=await load('src/game/challenge.ts');
-const {createQuickGame,RULESET_VERSION}=await load('src/game/quickGame.ts');
-const game=createQuickGame('2026-10-18');game.result='win';game.turn=7;game.trust=62;
-const url=challengeUrl('https://example.com/game/?unrelated=1#old',game),parsed=parseSharedChallenge(new URL(url).search);
-assert.equal(new URL(url).pathname,'/game/');assert.equal(new URL(url).hash,'');assert.equal(new URL(url).searchParams.get('rules'),RULESET_VERSION);
-assert.deepEqual(parsed,{seed:game.seed,player:'atlas',unsupported:false,goal:{seed:game.seed,turns:7,trust:62,player:'atlas'}});
-assert.deepEqual(createQuickGame(parsed.seed),createQuickGame(game.seed),'Shared code must reproduce identical starting conditions');
-assert.match(compareChallenge({...game,turn:6},parsed.goal),/побили/);
-assert.match(compareChallenge({...game,trust:63},parsed.goal),/побили/);
-assert.match(compareChallenge(game,parsed.goal),/повторили/);
-assert.match(compareChallenge({...game,turn:8},parsed.goal),/попробуйте/);
-assert.equal(parseSharedChallenge('?challenge=2026-10-18&rules=999&beat=7&trust=62').unsupported,true);
-assert.equal(parseSharedChallenge('?challenge=2026-10-18&rules=999&beat=7&trust=62').goal,null);
-for(const query of ['?challenge=bad%20code','?challenge=x&beat=-2&trust=50','?challenge=x&beat=16&trust=50','?challenge=x&beat=3&trust=101','?challenge=x&beat=3&trust=oops'])assert.equal(parseSharedChallenge(query).goal,null);
-assert.ok(!challengeText('http://127.0.0.1:5174/',game).includes('127.0.0.1'));
-assert.ok(challengeText('https://example.com/game/',game).includes(url));
-console.log('Challenge checks passed: same starting state, versioned URL, score limits, tie-break and localhost handling.');
+async function load(path){const b=await build({entryPoints:[path],bundle:true,platform:'node',format:'esm',write:false});return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));}
+const a=await load('src/game/challenge.ts'),g=await load('src/game/quickGame.ts');
+for(const difficulty of ['discovery','standard','expert'])for(const player of ['atlas','meridian','concordat']){
+ const game=g.createQuickGame('same-world',player,difficulty);game.result='win';game.turn=12;game.trust=60;
+ const url=a.challengeUrl('https://example.com/game/#old',game),parsed=a.parseSharedChallenge(new URL(url).search);assert.equal(parsed.difficulty,difficulty);assert.equal(parsed.player,player);assert.equal(parsed.goal.turns,12);assert.equal(new URL(url).hash,'');
+ assert.deepEqual(g.createQuickGame(parsed.seed,parsed.player,parsed.difficulty),g.createQuickGame(game.seed,game.player,game.difficulty));assert.match(a.compareChallenge(game,parsed.goal),/повторили/);assert.match(a.compareChallenge({...game,turn:11},parsed.goal),/побили/);assert.match(a.compareChallenge({...game,difficulty:difficulty==='expert'?'standard':'expert'},parsed.goal),/сложность/);
+ assert.ok(a.challengeText('https://example.com/game/',game).includes(url));assert.ok(!a.challengeText('http://127.0.0.1:5174/',game).includes('127.0.0.1'));
+}
+for(const search of ['?challenge=x&rules=3&beat=5&trust=60','?challenge=x&difficulty=__proto__&beat=5&trust=60','?challenge=x&rules=4&realm=atlas&difficulty=discovery&beat=19&trust=60','?challenge=x&beat=5&trust=60'])assert.equal(a.parseSharedChallenge(search).goal,null);
+console.log('Challenge checks passed: same seed, faction, difficulty and rules; valid score limits; incomparable modes; safe local sharing.');

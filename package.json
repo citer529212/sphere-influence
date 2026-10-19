@@ -1,13 +1,13 @@
 {
   "name": "sphere-influence",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts",
     "build": "tsc -b && vite build --config vite.config.ts",
     "preview": "vite preview --config vite.config.ts",
-    "test": "node scripts/check-quick-game.mjs && node scripts/check-world.mjs && node scripts/check-session.mjs && node scripts/check-challenge.mjs && node scripts/check-realms.mjs && node scripts/check-turns.mjs",
+    "test": "node scripts/check-quick-game.mjs && node scripts/check-world.mjs && node scripts/check-session.mjs && node scripts/check-challenge.mjs && node scripts/check-realms.mjs && node scripts/check-turns.mjs && node scripts/check-information.mjs",
     "verify:release": "npm test && npm run build && node scripts/check-release.mjs"
   },
   "dependencies": {

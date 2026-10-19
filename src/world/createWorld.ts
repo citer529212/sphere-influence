@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FactionId } from '../game/types';
+import { MEDIA_LINKS } from '../game/information';
 import { ActionEvent } from '../game/quickGame';
 import { Region } from '../game/types';
 import { CITY_SITES, TERRITORIES, RIVERS, channel, coastDistance, heightAt, nearestCity, ribbon, roadPaths, terrainGeometry } from './terrain';
@@ -9,7 +10,7 @@ import { batchStatic, cityModel, FACTION_COLORS, material, sharedAssetGeometries
 import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
 
-export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;actionEvent?:ActionEvent|null};
+export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
 type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
@@ -35,6 +36,11 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const geos=MAP_LANDS.filter(p=>p.faction===faction).map(land=>{const points=land.points.map(([x,z])=>new THREE.Vector3(x,Math.max(.08,heightAt(x,z)+.12),z));points.push(points[0].clone());return ribbon(points,.055);});
     const geo=mergeGeometries(geos);geos.forEach(g=>g.dispose());if(geo)scene.add(new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:FACTION_COLORS[faction],transparent:true,opacity:.48,side:THREE.DoubleSide,depthWrite:false})));
   }
+  const broadcast=new THREE.Group();
+  const connections=MEDIA_LINKS.map(([a,b])=>{
+    const from=CITY_SITES[a],to=CITY_SITES[b],start=new THREE.Vector3(from.x,heightAt(from.x,from.y)+.6,from.y),end=new THREE.Vector3(to.x,heightAt(to.x,to.y)+.6,to.y),mid=start.clone().lerp(end,.5);mid.y=Math.max(start.y,end.y)+1.5+from.distanceTo(to)*.04;
+    const curve=new THREE.CatmullRomCurve3([start,mid,end]),line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(32)),new THREE.LineBasicMaterial({color:'#9cb2b2',transparent:true,opacity:.4,depthWrite:false}));broadcast.add(line);return {a,b,line};
+  });scene.add(broadcast);
   const roads=roadPaths();
   const roadGeos=roads.map(path=>ribbon(path,.2));
   const roadMesh=new THREE.Mesh(mergeGeometries(roadGeos)!,material('#c0af87'));roadGeos.forEach(g=>g.dispose());roadMesh.receiveShadow=true;scene.add(roadMesh);
@@ -88,27 +94,29 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const clearMessenger=()=>{if(!messenger)return;scene.remove(messenger.line,messenger.orb);messenger.line.geometry.dispose();messenger.line.material.dispose();messenger.orb.geometry.dispose();messenger.orb.material.dispose();messenger=null;};
   let state=initial,currentTime=0,announcementTimer:ReturnType<typeof setTimeout>|undefined;
   const update=(next:WorldState)=>{
-    state=next;
+    state=next;broadcast.visible=!!next.network;
+    for(const {a,b,line} of connections){const active=next.reachableIds?.includes(next.regions[a]?.id)&&next.reachableIds?.includes(next.regions[b]?.id);line.material.color.set(active?FACTION_COLORS[next.player??'atlas']:'#8a9f9f');line.material.opacity=active?.72:.14;}
+
     visuals.forEach(v=>{
       const region=next.regions.find(r=>r.id===v.id);if(!region)return;
       v.targetBorder.set(FACTION_COLORS[next.layer==='political'?region.politicalOwner:region.infoController]);v.targetFlag.set(FACTION_COLORS[region.infoController]);
       const selected=next.selectedRegionId===v.id;v.ring.visible=selected;v.border.material.opacity=selected?.94:.58;v.node.visible=Object.values(region.mediaNodes).some(n=>n>0);
-      v.label.classList.toggle('selected',selected);v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));v.label.title=`${region.name} · Поддержка ${region.influence[next.player??'atlas']}%`;
+      v.label.classList.toggle('selected',selected);v.label.classList.toggle('outside-reach',!!next.reachableIds&&!next.reachableIds.includes(v.id));v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));v.label.title=`${region.name} · Поддержка ${region.influence[next.player??'atlas']}%`;
       if(v.controller!==region.infoController){
         v.controller=region.infoController;v.pulseStart=currentTime;v.wave.material.color.set(v.targetFlag);v.wave.visible=!reduced;
         v.label.classList.remove('city-captured');void v.label.offsetWidth;v.label.classList.add('city-captured');
-        if(next.selectedRegionId===v.id){callbacks.announce(region.infoController===(next.player??'atlas')?`${region.name} — теперь на вашей стороне`:`${region.name}: баланс влияния изменился`);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3400);}
+        if(next.selectedRegionId===v.id){callbacks.announce(region.infoController===(next.player??'atlas')?`${region.name} — ваша повестка лидирует`:`${region.name}: баланс информационного влияния изменился`);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3400);}
       }
       if(reduced){v.border.material.color.copy(v.targetBorder);v.border.material.emissive.copy(v.targetBorder);v.flag.material.color.copy(v.targetFlag);}
     });
-    const event=next.actionEvent;
-    if(event&&event.id!==handledEvent){
+    const event=next.actionEvent,newEvent=!!event&&event.id!==handledEvent;
+    if(event&&newEvent){
       handledEvent=event.id;clearMessenger();
       const v=visuals.find(v=>v.id===event.regionId);
       if(v){
         v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.scale.setScalar(1);v.wave.material.color.set(event.kind==='protect'||event.kind==='blocked'?'#9de3cf':FACTION_COLORS[event.actor]);v.wave.visible=!reduced;
         const icon=event.captured?'⚑':event.kind==='media'?'◈':event.kind==='protect'||event.kind==='blocked'?'◇':'⚑';
-        v.badge.textContent=`${icon} ${event.captured?'Город присоединился':event.kind==='media'?'Центр +1':event.kind==='blocked'?'Защищён':`+${event.amount}`}`;
+        v.badge.textContent=`${icon} ${event.captured?'Повестка лидирует':event.kind==='media'?'Центр +1':event.kind==='blocked'?'Защищён':`+${event.amount}`}`;
         v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[event.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');
         if(event.kind==='media')v.buildStart=currentTime;
         if(event.kind==='opponent'&&!reduced){
@@ -121,6 +129,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
         callbacks.announce(event.text);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3000);
       }
     }
+    if(newEvent&&event?.kind==='income')for(const change of event.changes??[]){const v=visuals.find(v=>v.id===change.regionId);if(!v)continue;v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.material.color.set(FACTION_COLORS[change.actor]);v.wave.visible=!reduced;v.badge.textContent=`◎ ${change.amount>0?'+':''}${change.amount}`;v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[change.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');}
     renderer.shadowMap.needsUpdate=true;
   };update(initial);
   let travel:{position:THREE.Vector3;target:THREE.Vector3}|null=null;
