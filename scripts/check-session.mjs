@@ -35,7 +35,7 @@ assert.equal(
   api.startSession(storage, undefined, "next-day").session.game.difficulty,
   "expert",
 );
-const key = "spheres.session.v5:same-map:standard",
+const key = "spheres.session.v6:same-map:standard",
   valid = values.get(key);
 for (const change of [
   (v) => (v.rules = "3"),

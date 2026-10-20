@@ -26,6 +26,17 @@ export function play(seed, player, difficulty, options = {}) {
     history = [],
     plan = [];
   while (!state.result) {
+    if (g.pendingWorldEvent(state)) {
+      const choice =
+        state.trust < g.objective(state).trust + 8 && state.influence >= 4
+          ? "verify"
+          : state.influence >= 3 && state.trust >= g.objective(state).trust + 12
+            ? "broadcast"
+            : "listen";
+      plan.push({ event: true, turn: state.turn, choice });
+      state = g.resolveWorldEvent(state, choice);
+    }
+
     for (let i = 0; i < g.decisionLimit(state); i++) {
       const mode = g.objective(state),
         reachable = g.mediaReach(state),

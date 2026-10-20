@@ -22,7 +22,7 @@ export async function makeResultCard(game:QuickState,capture:(()=>string)|null):
   ctx.strokeStyle='#b9a374';ctx.lineWidth=2;ctx.strokeRect(25,25,1150,850);
   ctx.fillStyle='#bfb38c';ctx.font='18px Trebuchet MS';ctx.fillText('СФЕРЫ ВЛИЯНИЯ  /  ТРИ МАТЕРИКА',64,76);
   ctx.textAlign='right';ctx.fillStyle=game.result==='win'?'#9fd4c3':'#d7b88a';ctx.fillText(game.result==='win'?'ПОБЕДА':'ПАРТИЯ ЗАВЕРШЕНА',1136,76);ctx.textAlign='left';
-  ctx.fillStyle='#f4e5bd';fittedText(ctx,game.result==='win'?'Мир слушает вас':'Новая попытка — новый план',64,147,1072,57);
+  ctx.fillStyle='#f4e5bd';fittedText(ctx,game.result==='win'?'Мир слушает вас':game.winner?`${REALMS[game.winner].name} выиграл гонку`:'Время для новой стратегии',64,147,1072,57);
   ctx.fillStyle='#b5c8b9';ctx.font='22px Trebuchet MS';ctx.fillText(game.result==='win'?(game.trust>=70?'Тихий дипломат':game.trust>=40?'Архитектор доверия':'Архитектор влияния'):'Исследователь трёх корон',64,190);
   let map:string|null=null;try{map=capture?.()??null;}catch{/* An illustrated map still produces a complete card. */}
   if(map){try{const image=new Image();image.src=map;await image.decode();ctx.drawImage(image,64,220,1072,410);}catch{fallbackMap(ctx,game);}}else fallbackMap(ctx,game);

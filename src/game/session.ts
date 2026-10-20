@@ -9,6 +9,7 @@ import {
   regionController,
   objective,
   decisionLimit,
+  rivalObjective,
 } from "./quickGame";
 
 import { DIFFICULTIES, DifficultyId, TOPICS } from "./information";
@@ -19,8 +20,8 @@ export interface StorageLike {
 }
 export type Session = { game: QuickState; selectedId: string; savedAt: string };
 export type Preferences = { sound: boolean; tutorialStep: number };
-const PREFIX = "spheres.session.v5:";
-const LAST = "spheres.last.v5";
+const PREFIX = "spheres.session.v6:";
+const LAST = "spheres.last.v6";
 const PREFS = "spheres.preferences.v1";
 const validSeed = (seed: unknown): seed is string =>
   typeof seed === "string" && /^[a-zA-Z0-9-]{1,40}$/.test(seed);
@@ -90,7 +91,9 @@ export function loadSession(
       !integer(saved.held, 0, DIFFICULTIES[difficulty].hold) ||
       !object(saved.rivalBudget) ||
       !object(saved.rivalTrust) ||
-      !object(saved.campaigns)
+      !object(saved.campaigns) ||
+      !object(saved.rivalHeld) ||
+      !integer(saved.eventTurn, 0, QUICK_LIMIT)
     )
       return null;
     if (
@@ -182,6 +185,18 @@ export function loadSession(
       game.rivalBudget[faction] = saved.rivalBudget[faction];
       game.rivalTrust[faction] = saved.rivalTrust[faction];
     }
+    if (
+      saved.eventTurn > saved.turn ||
+      saved.eventTurn % 4 !== 0 ||
+      !([null, ...factions] as unknown[]).includes(saved.winner)
+    )
+      return null;
+    game.eventTurn = saved.eventTurn;
+    game.winner = saved.winner as typeof game.winner;
+    for (const faction of factions) {
+      if (!integer(saved.rivalHeld[faction], 0, 2)) return null;
+      game.rivalHeld[faction] = saved.rivalHeld[faction];
+    }
     game.topic = saved.topic as typeof game.topic;
     game.held = saved.held;
     game.turn = saved.turn;
@@ -193,13 +208,34 @@ export function loadSession(
     const mode = objective(game);
     if (game.turn > mode.limit || game.actions > decisionLimit(game))
       return null;
+    const race = rivalObjective(game);
     if (
-      (game.result === "win") !== (game.held === mode.hold) ||
-      (game.result === "win" &&
-        (controlled(game) < mode.goal || game.trust < mode.trust)) ||
-      (game.result === "loss" && game.turn !== mode.limit)
+      game.result === "win" &&
+      (game.winner !== game.player ||
+        game.held !== mode.hold ||
+        controlled(game) < mode.goal ||
+        game.trust < mode.trust)
     )
       return null;
+    if (
+      game.result === null &&
+      (game.winner !== null || game.held === mode.hold)
+    )
+      return null;
+    if (game.result === "loss") {
+      if (game.winner === game.player) return null;
+      if (game.winner) {
+        if (
+          !race ||
+          game.rivalHeld[game.winner] !== race.hold ||
+          game.rivalTrust[game.winner] < race.trust ||
+          game.regions.filter((r) => r.infoController === game.winner).length <
+            race.goal
+        )
+          return null;
+      } else if (game.turn !== mode.limit) return null;
+    }
+    if (!race && factions.some((f) => game.rivalHeld[f] !== 0)) return null;
     const selectedId =
       typeof value.selectedId === "string" &&
       game.regions.some((r) => r.id === value.selectedId)

@@ -36,6 +36,9 @@ import {
   repeatPenalty,
   rivalOutlook,
   citySpecialty,
+  pendingWorldEvent,
+  resolveWorldEvent,
+  rivalObjective,
 } from "./game/quickGame";
 import {
   browserStorage,
@@ -58,6 +61,7 @@ import { FactionId } from "./game/types";
 import { RealmSelection, Opening, Fireworks } from "./ui/Chronicle";
 import { GameAudio } from "./ui/audio";
 import { Modal } from "./ui/Modal";
+import { WorldEvent } from "./ui/WorldEvent";
 import { RulesGuide } from "./ui/RulesGuide";
 import {
   challengeText,
@@ -132,6 +136,7 @@ export default function App(): JSX.Element {
     [shareOpen, setShareOpen] = useState(false),
     [restartOpen, setRestartOpen] = useState(false),
     [resultOpen, setResultOpen] = useState(!!game.result);
+  const [eventOpen, setEventOpen] = useState(false);
   const [saved, setSaved] = useState(true),
     [challenge, setChallenge] = useState(boot.challenge),
     [code, setCode] = useState(""),
@@ -175,6 +180,59 @@ export default function App(): JSX.Element {
     ).length,
     news = newsAt(game.turn),
     cityTopic = CITY_TOPICS[game.regions.indexOf(region)];
+  const pendingEvent = pendingWorldEvent(game),
+    race = rivalObjective(game);
+  const rivals = (["atlas", "meridian", "concordat"] as FactionId[])
+    .filter((f) => f !== player)
+    .map((f) => rivalOutlook(game, f));
+  const threat = rivals
+    .filter((r) => r.goal && (r.held > 0 || r.cities >= r.goal - 1))
+    .sort((a, b) => b.held - a.held || b.cities - a.cities)[0];
+  const overlayOpen =
+    selection ||
+    opening ||
+    menu ||
+    rules ||
+    journal ||
+    shareOpen ||
+    restartOpen ||
+    resultOpen ||
+    eventOpen;
+  useEffect(() => {
+    if (pendingEvent && !busy && !overlayOpen) setEventOpen(true);
+  }, [
+    game.turn,
+    busy,
+    selection,
+    opening,
+    rules,
+    journal,
+    menu,
+    shareOpen,
+    restartOpen,
+    resultOpen,
+  ]);
+  const chooseWorldEvent = (id: string) => {
+    if (!pendingEvent || busy) return;
+    const next = resolveWorldEvent(game, id);
+    if (next === game) return;
+    const target = next.regions.find((r) => r.id === pendingEvent.region.id)!;
+    setGame(next);
+    setSelectedId(target.id);
+    setEventOpen(false);
+    setWorldEvent({
+      id: ++eventCounter.current,
+      kind: "event",
+      actor: player,
+      regionId: target.id,
+      amount: target.influence[player] - pendingEvent.region.influence[player],
+      captured:
+        pendingEvent.region.infoController !== player &&
+        target.infoController === player,
+      text: `${pendingEvent.title} · поддержка +${target.influence[player] - pendingEvent.region.influence[player]} · доверие ${next.trust - game.trust >= 0 ? "+" : ""}${next.trust - game.trust} · ресурс ${next.influence - game.influence >= 0 ? "+" : ""}${next.influence - game.influence}`,
+    });
+    void audio.play("select");
+  };
   const blocked =
     busy ||
     selection ||
@@ -184,7 +242,9 @@ export default function App(): JSX.Element {
     journal ||
     shareOpen ||
     restartOpen ||
-    resultOpen;
+    resultOpen ||
+    eventOpen ||
+    !!pendingEvent;
   const neutral =
     region.politicalOwner === "neutral" &&
     region.infoController === "contested";
@@ -380,7 +440,7 @@ export default function App(): JSX.Element {
   const eventTitle = worldEvent
     ? worldEvent.kind === "income"
       ? `Ход ${game.turn} · ${SEASONS[season(game.turn)]}`
-      : `${REALMS[worldEvent.actor].name} · ${worldEvent.kind === "opponent" ? "кампания" : worldEvent.kind === "blocked" ? "кампания сдержана" : QUICK_ACTIONS[worldEvent.kind].name}`
+      : `${REALMS[worldEvent.actor].name} · ${worldEvent.kind === "opponent" ? "кампания" : worldEvent.kind === "blocked" ? "кампания сдержана" : worldEvent.kind === "event" ? "Ответ на событие" : QUICK_ACTIONS[worldEvent.kind].name}`
     : "";
   return (
     <div className="game-shell">
@@ -400,7 +460,7 @@ export default function App(): JSX.Element {
               onCaptureReady={captureReady}
               player={player}
               turn={game.turn}
-              keyboardEnabled={!blocked}
+              keyboardEnabled={!busy && !overlayOpen}
               actionEvent={worldEvent}
               reachableIds={[...mediaReach(game)].map(
                 (i) => game.regions[i].id,
@@ -476,11 +536,43 @@ export default function App(): JSX.Element {
             : `Вызов: победа за ${challenge.goal!.turns} ходов`}
         </button>
       )}
-      {step >= 3 && !worldEvent && !selection && !opening && (
-        <button className="news-headline" onClick={() => setRules(true)}>
-          <span>ИНФОПОВОД · {DIFFICULTIES[game.difficulty].name}</span>
-          <strong>{news.title}</strong>
+      {step >= 3 &&
+        !worldEvent &&
+        !selection &&
+        !opening &&
+        !pendingEvent &&
+        !threat && (
+          <button className="news-headline" onClick={() => setRules(true)}>
+            <span>ИНФОПОВОД · {DIFFICULTIES[game.difficulty].name}</span>
+            <strong>{news.title}</strong>
+          </button>
+        )}
+      {pendingEvent && !eventOpen && !overlayOpen && (
+        <button
+          className="pending-event-banner"
+          onClick={() => setEventOpen(true)}
+        >
+          ✦ {pendingEvent.title} · выберите ответ →
         </button>
+      )}
+      {threat && !game.result && !pendingEvent && !overlayOpen && (
+        <button
+          className="race-warning"
+          aria-label={`Угроза победы: ${REALMS[threat.actor].name}, ${threat.cities}/${threat.goal} городов, удержание ${threat.held}/2`}
+          onClick={() => setJournal(true)}
+        >
+          <span role="status">
+            ⚠ {REALMS[threat.actor].name}: {threat.cities}/{threat.goal} городов
+            · удержание {threat.held}/2
+          </span>
+        </button>
+      )}
+      {eventOpen && pendingEvent && (
+        <WorldEvent
+          game={game}
+          onChoose={chooseWorldEvent}
+          onClose={() => setEventOpen(false)}
+        />
       )}
       <aside
         className={`command-dock ${collapsed ? "is-collapsed" : ""}`}
@@ -768,6 +860,13 @@ export default function App(): JSX.Element {
           className="settings-modal"
         >
           <h2 id="menu-title">Сферы влияния</h2>
+          {game.result === "loss" && (
+            <p>
+              {game.winner
+                ? `Соперник удержал ${race?.goal} аудиторий ${race?.hold} хода при доверии ${game.rivalTrust[game.winner]}%. В следующей партии попробуйте раньше ослабить его лидерство.`
+                : "За отведённые ходы не удалось удержать нужное влияние и доверие."}
+            </p>
+          )}
           <p>
             {realm.ruler} · {realm.name}
             <br />
@@ -870,8 +969,19 @@ export default function App(): JSX.Element {
                   <article key={f}>
                     <h3 style={{ color: REALMS[f].color }}>{REALMS[f].name}</h3>
                     <strong>
-                      {r.cities} аудиторий · {r.centers} редакций
+                      {r.cities}
+                      {r.goal ? `/${r.goal}` : ""} аудиторий · {r.centers}{" "}
+                      редакций
                     </strong>
+                    <p
+                      className={
+                        r.held > 0 ? "race-progress urgent" : "race-progress"
+                      }
+                    >
+                      {r.goal
+                        ? `Победа: ${r.goal} аудиторий, доверие ≥${race?.trust}%, удержание ${r.held}/2`
+                        : "Учебный режим: соперники не завершают партию"}
+                    </p>
                     <p>
                       {r.intent}
                       {r.target ? ` · ${r.target}` : ""}
@@ -933,8 +1043,17 @@ export default function App(): JSX.Element {
           <h2 id="quick-result">
             {game.result === "win"
               ? "Мир слушает вас"
-              : "Новая попытка — новая стратегия"}
+              : game.winner
+                ? `${REALMS[game.winner].name} выиграл гонку`
+                : "Время вышло"}
           </h2>
+          {game.result === "loss" && (
+            <p>
+              {game.winner
+                ? `Соперник удержал ${race?.goal} аудиторий ${race?.hold} хода при доверии ${game.rivalTrust[game.winner]}%. В следующей партии попробуйте раньше ослабить его лидерство.`
+                : "За отведённые ходы не удалось удержать нужное влияние и доверие."}
+            </p>
+          )}
           <p>
             {realm.ruler} · {cities} из {QUICK_TOTAL} городов · Ход {game.turn}{" "}
             · Доверие {game.trust}%

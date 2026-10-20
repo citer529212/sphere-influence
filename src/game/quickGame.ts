@@ -12,6 +12,7 @@ import {
   TopicId,
   TOPICS,
 } from "./information";
+import { WORLD_EVENTS, EventOption } from "./events";
 export type QuickAction = "media" | "attract" | "protect";
 export type CampaignMemory = { topic: TopicId; repeats: number };
 export type QuickState = {
@@ -27,11 +28,14 @@ export type QuickState = {
   rivalBudget: Record<FactionId, number>;
   rivalTrust: Record<FactionId, number>;
   campaigns: Record<string, CampaignMemory>;
+  eventTurn: number;
+  rivalHeld: Record<FactionId, number>;
+  winner: FactionId | null;
   regions: Region[];
   log: string[];
   result: "win" | "loss" | null;
 };
-export const RULESET_VERSION = "5",
+export const RULESET_VERSION = "6",
   QUICK_TOTAL = 16,
   NEUTRAL_SUPPORT = 55;
 // Upper bounds for validation; actual objectives come from the selected difficulty.
@@ -125,6 +129,9 @@ export function createQuickGame(
     rivalBudget: { atlas: 14, meridian: 14, concordat: 14 },
     rivalTrust: { atlas: 65, meridian: 65, concordat: 65 },
     campaigns: {},
+    eventTurn: 0,
+    rivalHeld: { atlas: 0, meridian: 0, concordat: 0 },
+    winner: null,
     regions,
     log: [
       `Информационное лидерство в ${mode.goal} городах, доверие ${mode.trust}% и удержание ${mode.hold} ходов. Лимит: ${mode.limit}.`,
@@ -349,6 +356,8 @@ export function actionError(
   actor = state.player,
 ): string | null {
   if (state.result) return "Партия завершена";
+  if (actor === state.player && pendingWorldEvent(state))
+    return "Сначала выберите ответ на событие";
   if (actor === state.player && state.actions < 1) return "Завершите ход";
   if (
     (actor === state.player ? state.influence : state.rivalBudget[actor]) <
@@ -460,7 +469,7 @@ export function quickAction(
 }
 export type ActionEvent = {
   id: number;
-  kind: QuickAction | "opponent" | "blocked" | "income";
+  kind: QuickAction | "opponent" | "blocked" | "income" | "event";
   actor: FactionId;
   regionId?: string;
   amount: number;
@@ -530,7 +539,8 @@ function rivalDecision(
           ? 12
           : 0) -
         supportNeeded(r, actor) -
-        r.fatigue / 4 +
+        r.fatigue / 4 -
+        (r.influence[actor] >= 85 && supportLead(r, actor) >= 85 ? 28 : 0) +
         (hash(state.seed + state.turn + r.id + actor) % 7);
       return score(b) - score(a);
     });
@@ -553,6 +563,8 @@ export function rivalOutlook(state: QuickState, actor: FactionId) {
   );
   return {
     actor,
+    held: state.rivalHeld[actor],
+    goal: rivalObjective(state)?.goal ?? null,
     cities: state.regions.filter((r) => r.infoController === actor).length,
     centers: state.regions.filter(
       (r) => r.infoController === actor && r.mediaNodes[actor] > 0,
@@ -569,11 +581,33 @@ export function rivalOutlook(state: QuickState, actor: FactionId) {
   };
 }
 export function planQuickEndTurn(current: QuickState): TurnFrame[] {
-  if (current.result) return [];
+  if (current.result || pendingWorldEvent(current)) return [];
   const state = structuredClone(current),
     frames: TurnFrame[] = [],
     mode = objective(state);
   for (const actor of FACTION_IDS.filter((f) => f !== state.player)) {
+    if (state.turn % 4 === 0) {
+      const target = eventTarget(state, actor),
+        before = target.influence[actor],
+        option =
+          eventOptions(state, actor).find(
+            (o) =>
+              o.id ===
+                (state.rivalTrust[actor] < 60 ? "verify" : "broadcast") &&
+              eventAffordable(state, o, actor),
+          ) ?? eventOptions(state, actor).find((o) => o.id === "listen")!;
+      applyWorldEvent(state, option, actor);
+      frames.push({
+        state: structuredClone(state),
+        event: {
+          kind: "event",
+          actor,
+          regionId: target.id,
+          amount: target.influence[actor] - before,
+          text: `${worldEventDefinition(state).title}: ${option.title} · ${target.name}`,
+        },
+      });
+    }
     const acted = new Set<string>();
     for (let n = 0; n < mode.aiActions; n++) {
       if (n === 0) state.regions.forEach((r) => (r.factCheckShield[actor] = 0));
@@ -673,11 +707,42 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
     region.infoController = regionController(region);
   }
   const qualifies = controlled(state) >= mode.goal && state.trust >= mode.trust;
-  state.held = qualifies ? state.held + 1 : 0;
-  if (state.held >= mode.hold) {
-    state.result = "win";
+  state.held = qualifies ? Math.min(mode.hold, state.held + 1) : 0;
+  const race = rivalObjective(state);
+  for (const actor of FACTION_IDS.filter((f) => f !== state.player))
+    state.rivalHeld[actor] =
+      race &&
+      state.regions.filter((r) => r.infoController === actor).length >=
+        race.goal &&
+      state.rivalTrust[actor] >= race.trust
+        ? Math.min(race.hold, state.rivalHeld[actor] + 1)
+        : 0;
+  if (state.held >= mode.hold) state.winner = state.player;
+  else if (race) {
+    const contenders = FACTION_IDS.filter(
+      (f) => f !== state.player && state.rivalHeld[f] >= race.hold,
+    ).sort(
+      (a, b) =>
+        state.regions.filter((r) => r.infoController === b).length -
+          state.regions.filter((r) => r.infoController === a).length ||
+        state.rivalTrust[b] - state.rivalTrust[a],
+    );
+    const [first, second] = contenders;
+    if (
+      first &&
+      (!second ||
+        state.regions.filter((r) => r.infoController === first).length !==
+          state.regions.filter((r) => r.infoController === second).length ||
+        state.rivalTrust[first] !== state.rivalTrust[second])
+    )
+      state.winner = first;
+  }
+  if (state.winner) {
+    state.result = state.winner === state.player ? "win" : "loss";
     state.log.unshift(
-      `Победа: информационное лидерство удержано ${state.held} ходов при доверии ${state.trust}%.`,
+      state.result === "win"
+        ? `Победа: лидерство удержано ${state.held} ходов при доверии ${state.trust}%.`
+        : `${REALMS[state.winner].name} удерживает информационное лидерство. Гонка завершена.`,
     );
   } else if (state.turn >= mode.limit) {
     state.result = "loss";
@@ -704,4 +769,96 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
 }
 export function quickEndTurn(current: QuickState): QuickState {
   return planQuickEndTurn(current).at(-1)?.state ?? current;
+}
+
+export function rivalObjective(state: QuickState) {
+  return state.difficulty === "discovery"
+    ? null
+    : {
+        goal: state.difficulty === "standard" ? 7 : 8,
+        trust: objective(state).trust,
+        hold: 2,
+      };
+}
+function worldEventDefinition(state: QuickState) {
+  return WORLD_EVENTS[
+    ((hash(state.seed) % WORLD_EVENTS.length) +
+      Math.floor(state.turn / 4) -
+      1 +
+      WORLD_EVENTS.length) %
+      WORLD_EVENTS.length
+  ];
+}
+export function eventTarget(state: QuickState, actor = state.player): Region {
+  const reach = mediaReach(state, actor);
+  return state.regions
+    .filter((_r, i) => reach.has(i))
+    .sort(
+      (a, b) =>
+        Number(a.infoController === actor) -
+          Number(b.infoController === actor) ||
+        hash(state.seed + state.turn + a.id) -
+          hash(state.seed + state.turn + b.id),
+    )[0];
+}
+export function eventOptions(
+  state: QuickState,
+  _actor = state.player,
+): readonly EventOption[] {
+  return worldEventDefinition(state).options;
+}
+export function pendingWorldEvent(state: QuickState) {
+  return !state.result && state.turn % 4 === 0 && state.eventTurn !== state.turn
+    ? { ...worldEventDefinition(state), region: eventTarget(state) }
+    : null;
+}
+export function eventAffordable(
+  state: QuickState,
+  option: EventOption,
+  actor = state.player,
+) {
+  return (
+    (actor === state.player ? state.influence : state.rivalBudget[actor]) +
+      option.resource >=
+    0
+  );
+}
+function applyWorldEvent(
+  state: QuickState,
+  option: EventOption,
+  actor: FactionId,
+) {
+  const region = eventTarget(state, actor);
+  if (actor === state.player) {
+    state.influence += option.resource;
+    state.trust = Math.max(0, Math.min(100, state.trust + option.trust));
+  } else {
+    state.rivalBudget[actor] += option.resource;
+    state.rivalTrust[actor] = Math.max(
+      0,
+      Math.min(100, state.rivalTrust[actor] + option.trust),
+    );
+  }
+  region.influence[actor] = Math.min(
+    100,
+    region.influence[actor] + option.support,
+  );
+  region.fatigue = Math.max(0, Math.min(100, region.fatigue + option.fatigue));
+  region.infoController = regionController(region);
+  state.log.unshift(
+    `${REALMS[actor].name}: ${worldEventDefinition(state).title} · ${option.title} · ${region.name}.`,
+  );
+  trim(state);
+}
+export function resolveWorldEvent(
+  current: QuickState,
+  optionId: string,
+): QuickState {
+  if (!pendingWorldEvent(current)) return current;
+  const option = eventOptions(current).find((o) => o.id === optionId);
+  if (!option || !eventAffordable(current, option)) return current;
+  const state = structuredClone(current);
+  applyWorldEvent(state, option, state.player);
+  state.eventTurn = state.turn;
+  return state;
 }

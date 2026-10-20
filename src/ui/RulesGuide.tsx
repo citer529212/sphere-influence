@@ -1,4 +1,4 @@
-import { QuickState, objective } from "../game/quickGame";
+import { QuickState, objective, rivalObjective } from "../game/quickGame";
 import { newsAt } from "../game/information";
 import { Modal } from "./Modal";
 
@@ -13,7 +13,8 @@ export function RulesGuide({
   introduction?: boolean;
   notice?: string;
 }): JSX.Element {
-  const mode = objective(game);
+  const mode = objective(game),
+    race = rivalObjective(game);
   return (
     <Modal titleId="guide-title" onClose={onClose} className="rules-guide">
       <span className="guide-eyebrow">СФЕРЫ ВЛИЯНИЯ · ПРАВИЛА ЗА МИНУТУ</span>
@@ -44,6 +45,18 @@ export function RulesGuide({
           ответов соперников.
         </small>
       </div>
+      {rivalObjective(game) && (
+        <p className="guide-race">
+          Соперники тоже могут победить: каждому нужно удержать {race?.goal}{" "}
+          городов два хода при доверии от {mode.trust}%. Следите за
+          предупреждениями и ослабляйте их лидерство.
+        </p>
+      )}
+      <p>
+        Каждый четвёртый ход появляется событие с тремя ответами. До выбора
+        видно, как изменятся поддержка, доверие и ресурсы. Ответ не расходует
+        обычные действия.
+      </p>
       <ol className="guide-steps">
         <li>
           <span>1</span>
@@ -104,6 +117,13 @@ export function RulesGuide({
       </div>
       <details>
         <summary>Как получить лидерство и открыть новые города?</summary>
+        {race && (
+          <p>
+            Если две державы одновременно удержали свою цель, выигрывает та, у
+            которой больше аудиторий, затем — выше доверие. При полном равенстве
+            соперников гонка продолжается.
+          </p>
+        )}
         <p>
           <strong>{newsAt(game.turn).title}.</strong> {newsAt(game.turn).text}
         </p>
