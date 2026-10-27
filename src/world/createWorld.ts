@@ -11,11 +11,12 @@ import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
 import { NavigationKeys } from './navigation';
 import { createLivingMap, influencePulse } from './livingMap';
+import { createOpinionTint, opinion } from './opinion';
 
 export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
-type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
+type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;support:HTMLSpanElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
 
 export function createWorld(container:HTMLDivElement,initial:WorldState,callbacks:Callbacks):WorldApi {
   const economy=window.matchMedia('(max-width: 600px)').matches;
@@ -32,7 +33,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   scene.add(new THREE.HemisphereLight('#d9eaf2','#48533c',1.45));
   const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
   Object.assign(sun.shadow.camera,{left:-39,right:39,top:30,bottom:-30,near:1,far:100});sun.shadow.normalBias=.11;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun);
-  const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);
+  const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry);
   const water=createWater();scene.add(water);
   for(const faction of ['atlas','meridian','concordat','neutral'] as const){
     const geos=MAP_LANDS.filter(p=>p.faction===faction).map(land=>{const points=land.points.map(([x,z])=>new THREE.Vector3(x,Math.max(.08,heightAt(x,z)+.12),z));points.push(points[0].clone());return ribbon(points,.055);});
@@ -86,8 +87,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const node=new THREE.Group();node.position.set(center.x-1.65,ground,center.y-.6);
     const mastMat=material('#b4bdb2'),tower=new THREE.Mesh(new THREE.CylinderGeometry(.045,.15,2.15,6),mastMat);tower.position.y=1.075;tower.castShadow=true;node.add(tower);
     const dish=new THREE.Mesh(new THREE.SphereGeometry(.28,10,6,0,Math.PI*2,0,Math.PI/2),mastMat);dish.position.set(.1,1.8,0);dish.rotation.z=.75;node.add(dish);const beacon=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),new THREE.MeshBasicMaterial({color:'#ffe2a0'}));beacon.position.y=2.2;node.add(beacon);scene.add(node);
-    const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
-    visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
+    const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const support=document.createElement('span');support.className='city-opinion';label.appendChild(support);const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
+    visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,support,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
   const urban=batchStatic(staticGroups);scene.add(urban);
   const living=createLivingMap(economy,reduced);scene.add(living.group);
@@ -99,7 +100,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const clearMessenger=()=>{if(!messenger)return;scene.remove(messenger.line,messenger.orb);messenger.line.geometry.dispose();messenger.line.material.dispose();messenger.orb.geometry.dispose();messenger.orb.material.dispose();messenger=null;};
   let state=initial,currentTime=0,announcementTimer:ReturnType<typeof setTimeout>|undefined;
   const update=(next:WorldState)=>{
-    state=next;broadcast.visible=!!next.network;
+    state=next;broadcast.visible=!!next.network;opinionTint.update(next.regions,next.layer==='information');
     for(const connection of connections){const {a,b,line}=connection;const active=next.reachableIds?.includes(next.regions[a]?.id)&&next.reachableIds?.includes(next.regions[b]?.id);connection.active=!!active;line.material.color.set(active?FACTION_COLORS[next.player??'atlas']:'#8a9f9f');line.material.opacity=active?.72:.14;}
 
     signalColor.set(FACTION_COLORS[next.player??'atlas']);connections.forEach((_,i)=>signals.setColorAt(i,signalColor));if(signals.instanceColor)signals.instanceColor.needsUpdate=true;
@@ -107,7 +108,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       const region=next.regions.find(r=>r.id===v.id);if(!region)return;
       v.targetBorder.set(FACTION_COLORS[next.layer==='political'?region.politicalOwner:region.infoController]);v.targetFlag.set(FACTION_COLORS[region.infoController]);
       const selected=next.selectedRegionId===v.id;v.ring.visible=selected;v.border.material.opacity=selected?.94:.58;v.node.visible=Object.values(region.mediaNodes).some(n=>n>0);
-      v.label.classList.toggle('selected',selected);v.label.classList.toggle('outside-reach',!!next.reachableIds&&!next.reachableIds.includes(v.id));v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));v.label.title=`${region.name} · Поддержка ${region.influence[next.player??'atlas']}%`;
+      v.label.classList.toggle('selected',selected);v.label.classList.toggle('outside-reach',!!next.reachableIds&&!next.reachableIds.includes(v.id));v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));const view=opinion(region,next.player??'atlas');v.support.hidden=next.layer!=='information';v.support.textContent=`Вы ${view.support}% · ${view.controller==='contested'?'Спорный':view.controller===(next.player??'atlas')?'Лидируете':'Соперник'}`;v.label.classList.toggle('opinion-fragile',next.layer==='information'&&view.fragile);v.label.title=`${region.name} · ${view.status} · Ваша поддержка ${view.support}% · ${view.needed>0?`До лидерства +${view.needed}`:'Ваша повестка лидирует'}`;v.label.setAttribute('aria-label',`Выбрать ${v.label.title}`);
       if(v.controller!==region.infoController){
         v.controller=region.infoController;v.pulseStart=currentTime;v.wave.material.uniforms.tint.value.copy(v.targetFlag);v.wave.visible=!reduced;
         v.label.classList.remove('city-captured');void v.label.offsetWidth;v.label.classList.add('city-captured');
