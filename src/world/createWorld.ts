@@ -10,11 +10,12 @@ import { batchStatic, cityModel, FACTION_COLORS, material, sharedAssetGeometries
 import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
 import { NavigationKeys } from './navigation';
+import { createLivingMap, influencePulse } from './livingMap';
 
 export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
-type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
+type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
 
 export function createWorld(container:HTMLDivElement,initial:WorldState,callbacks:Callbacks):WorldApi {
   const economy=window.matchMedia('(max-width: 600px)').matches;
@@ -78,7 +79,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const borderMat=new THREE.MeshStandardMaterial({color:FACTION_COLORS[region.infoController],emissive:FACTION_COLORS[region.infoController],emissiveIntensity:.45,transparent:true,opacity:.65,side:THREE.DoubleSide,depthWrite:false,roughness:1});
     const border=new THREE.Mesh(ribbon(points,.11),borderMat);scene.add(border);
     const ringGeometry=new THREE.RingGeometry(2.05,2.13,64);ringGeometry.rotateX(-Math.PI/2);const ringVertices=ringGeometry.attributes.position;for(let i=0;i<ringVertices.count;i++)ringVertices.setY(i,heightAt(center.x+ringVertices.getX(i),center.y+ringVertices.getZ(i))+.12);const ring=new THREE.Mesh(ringGeometry,new THREE.MeshBasicMaterial({color:'#f6db9a',transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(center.x,0,center.y);scene.add(ring);
-    const wave=new THREE.Mesh(new THREE.RingGeometry(1.9,2.06,64),new THREE.MeshBasicMaterial({color:FACTION_COLORS[region.infoController],transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));wave.rotation.x=-Math.PI/2;wave.position.set(center.x,ground+.1,center.y);wave.visible=false;scene.add(wave);
+    const wave=influencePulse(center.x,center.y);scene.add(wave);
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.025,.035,2.9,6),material('#bca986'));pole.position.set(center.x+.9,ground+1.45,center.y+.4);scene.add(pole);
     const flagGeo=new THREE.PlaneGeometry(.85,.42,7,2);flagGeo.translate(.425,0,0);
     const flag=new THREE.Mesh(flagGeo,new THREE.MeshStandardMaterial({color:FACTION_COLORS[region.infoController],side:THREE.DoubleSide,roughness:.8}));flag.position.set(center.x+.9,ground+2.62,center.y+.4);scene.add(flag);
@@ -89,6 +90,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
   const urban=batchStatic(staticGroups);scene.add(urban);
+  const living=createLivingMap(economy,reduced);scene.add(living.group);
   // Originals are CPU-only inputs for batching, so release their allocations as well.
   const sourceGeometries=new Set<THREE.BufferGeometry>(sharedAssetGeometries());staticGroups.forEach(g=>g.traverse(o=>{if(o instanceof THREE.Mesh)sourceGeometries.add(o.geometry);}));sourceGeometries.forEach(g=>g.dispose());
   renderer.shadowMap.needsUpdate=true;
@@ -107,7 +109,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       const selected=next.selectedRegionId===v.id;v.ring.visible=selected;v.border.material.opacity=selected?.94:.58;v.node.visible=Object.values(region.mediaNodes).some(n=>n>0);
       v.label.classList.toggle('selected',selected);v.label.classList.toggle('outside-reach',!!next.reachableIds&&!next.reachableIds.includes(v.id));v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));v.label.title=`${region.name} · Поддержка ${region.influence[next.player??'atlas']}%`;
       if(v.controller!==region.infoController){
-        v.controller=region.infoController;v.pulseStart=currentTime;v.wave.material.color.set(v.targetFlag);v.wave.visible=!reduced;
+        v.controller=region.infoController;v.pulseStart=currentTime;v.wave.material.uniforms.tint.value.copy(v.targetFlag);v.wave.visible=!reduced;
         v.label.classList.remove('city-captured');void v.label.offsetWidth;v.label.classList.add('city-captured');
         if(next.selectedRegionId===v.id){callbacks.announce(region.infoController===(next.player??'atlas')?`${region.name} — ваша повестка лидирует`:`${region.name}: баланс информационного влияния изменился`);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3400);}
       }
@@ -118,13 +120,17 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       handledEvent=event.id;clearMessenger();
       const v=visuals.find(v=>v.id===event.regionId);
       if(v){
-        v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.scale.setScalar(1);v.wave.material.color.set(event.kind==='protect'||event.kind==='blocked'?'#9de3cf':FACTION_COLORS[event.actor]);v.wave.visible=!reduced;
+        v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.material.uniforms.tint.value.set(event.kind==='protect'||event.kind==='blocked'?'#9de3cf':FACTION_COLORS[event.actor]);v.wave.visible=!reduced;
         const icon=event.captured?'⚑':event.kind==='media'?'◈':event.kind==='protect'||event.kind==='blocked'?'◇':'⚑';
         v.badge.textContent=`${icon} ${event.captured?'Повестка лидирует':event.kind==='media'?'Центр +1':event.kind==='blocked'?'Защищён':`+${event.amount}`}`;
         v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[event.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');
         if(event.kind==='media')v.buildStart=currentTime;
         if((event.kind==='opponent'||event.kind==='attract'||event.kind==='event')&&!reduced){
-          const sourceIndex=next.regions.findIndex(r=>r.infoController===event.actor&&r.mediaNodes[event.actor]>0) >= 0 ? next.regions.findIndex(r=>r.infoController===event.actor&&r.mediaNodes[event.actor]>0) : next.regions.findIndex(r=>r.politicalOwner===event.actor),from=CITY_SITES[Math.max(0,sourceIndex)];
+          const candidates=next.regions.map((r,i)=>({r,i})).filter(({r,i})=>i<CITY_SITES.length&&r.id!==v.id&&r.infoController===event.actor&&r.mediaNodes[event.actor]>0);
+          candidates.sort((a,b)=>CITY_SITES[a.i].distanceToSquared(v.center)-CITY_SITES[b.i].distanceToSquared(v.center));
+          const sourceIndex=candidates[0]?.i??next.regions.findIndex(r=>r.politicalOwner===event.actor),from=CITY_SITES[Math.max(0,sourceIndex)];
+          v.pulseStart=currentTime+1.25;
+          const sourceVisual=visuals[Math.max(0,sourceIndex)];if(sourceVisual&&sourceVisual!==v){sourceVisual.pulseStart=currentTime;sourceVisual.wave.material.uniforms.tint.value.set(FACTION_COLORS[event.actor]);sourceVisual.wave.visible=true;}
           const a=new THREE.Vector3(from.x,heightAt(from.x,from.y)+2,from.y),b=new THREE.Vector3(v.center.x,v.ground+2,v.center.y),mid=a.clone().lerp(b,.5);mid.y+=5;
           const curve=new THREE.CatmullRomCurve3([a,mid,b]);const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));geo.setDrawRange(0,1);
           const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:FACTION_COLORS[event.actor],transparent:true,opacity:.8}));
@@ -133,7 +139,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
         callbacks.announce(event.text);clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>callbacks.announce(''),3000);
       }
     }
-    if(newEvent&&event?.kind==='income')for(const change of event.changes??[]){const v=visuals.find(v=>v.id===change.regionId);if(!v)continue;v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.material.color.set(FACTION_COLORS[change.actor]);v.wave.visible=!reduced;v.badge.textContent=`◎ ${change.amount>0?'+':''}${change.amount}`;v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[change.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');}
+    if(newEvent&&event?.kind==='income')for(const change of event.changes??[]){const v=visuals.find(v=>v.id===change.regionId);if(!v)continue;v.effectStart=currentTime;v.pulseStart=currentTime;v.wave.material.uniforms.tint.value.set(FACTION_COLORS[change.actor]);v.wave.visible=!reduced;v.badge.textContent=`◎ ${change.amount>0?'+':''}${change.amount}`;v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[change.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');}
     renderer.shadowMap.needsUpdate=true;
   };update(initial);
   let travel:{position:THREE.Vector3;target:THREE.Vector3}|null=null;
@@ -199,14 +205,14 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       const target=controls.target.clone().add(delta);target.x=THREE.MathUtils.clamp(target.x,-36,36);target.z=THREE.MathUtils.clamp(target.z,-23,23);
       delta.copy(target).sub(controls.target);camera.position.add(delta);controls.target.copy(target);
     }
-    controls.update();water.material.uniforms.time.value=reduced?0:currentTime;
+    controls.update();water.material.uniforms.time.value=reduced?0:currentTime;living.update(currentTime);
     if(broadcast.visible){connections.forEach((connection,i)=>{connection.curve.getPoint(reduced?.5:(currentTime*.17+i*.137)%1,signalPosition);signalMatrix.compose(signalPosition,signalRotation,signalScale.setScalar(connection.active?1:0));signals.setMatrixAt(i,signalMatrix);});signals.instanceMatrix.needsUpdate=true;}
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);
       const age=currentTime-v.pulseStart;
       if(!v.badge.hidden&&currentTime-v.effectStart>2.8)v.badge.hidden=true;
       const buildAge=currentTime-v.buildStart;v.node.scale.setScalar(reduced||buildAge>1?1:Math.max(.05,Math.min(1,buildAge*1.4)));
-      if(v.wave.visible){v.wave.scale.setScalar(1+age*1.7);v.wave.material.opacity=Math.max(0,(1-age/2)*.6);if(age>=2)v.wave.visible=false;}
+      if(v.wave.visible){v.wave.material.uniforms.progress.value=Math.max(0,Math.min(1,age/2));if(age>=2)v.wave.visible=false;}
       if(!reduced){const positions=v.flag.geometry.attributes.position;for(let i=0;i<positions.count;i++){const x=positions.getX(i);positions.setZ(i,Math.sin(currentTime*2.4+x*6+v.center.x)*x*.16);}positions.needsUpdate=true;}
       if(rendered%2===0){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.transform=`translate(-50%,0)`;v.label.style.left=`${(projected.x*.5+.5)*container.clientWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*container.clientHeight}px`;v.label.hidden=(container.clientWidth<600&&v.id!==state.selectedRegionId&&!(state.actionEvent?.regionId===v.id&&currentTime-v.effectStart<2.8))||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
     });

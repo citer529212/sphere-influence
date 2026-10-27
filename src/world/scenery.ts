@@ -17,7 +17,7 @@ function piece(group:THREE.Group,geometry:THREE.BufferGeometry,mat:THREE.Materia
 export function cityModel(region:Region,index:number):THREE.Group {
   const group=new THREE.Group(),random=randomGenerator(400+index);
   const style=region.politicalOwner,capital=index<12&&index%4===0;
-  const walls=material(style==='concordat'?'#bba077':style==='meridian'?'#d1b395':'#ded7bd'),trim=material(style==='meridian'?'#8c5144':style==='concordat'?'#a88043':'#b9a982'),windows=material('#35444a'),paving=material('#aaa38c');
+  const walls=material(style==='concordat'?'#bba077':style==='meridian'?'#d1b395':'#ded7bd'),trim=material(style==='meridian'?'#8c5144':style==='concordat'?'#a88043':'#b9a982'),windows=new THREE.MeshStandardMaterial({color:'#b9a16b',emissive:'#ffbf66',emissiveIntensity:.65,roughness:.85}),paving=material('#aaa38c');
   const roof=material(style==='atlas'?'#3e6076':style==='meridian'?'#8f493f':style==='concordat'?'#a4864c':'#677677');
   piece(group,cylinder,paving,0,.035,0,1.9,.07,1.9);
   // Small blocks form streets around a readable central landmark.
