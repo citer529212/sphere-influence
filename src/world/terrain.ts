@@ -59,9 +59,9 @@ function rawHeight(x: number,z: number): number {
   let h = 1.05 + noise(x,z);
   for (const [px,pz,height,sx,sz] of peaks) {
     const dx=(x-px)/sx,dz=(z-pz)/sz;
-    h += Math.exp(-(dx*dx+dz*dz)*.65)*height*(.83+.17*Math.sin(x*2+z*1.3));
+    h += Math.exp(-(dx*dx+dz*dz)*.65)*height*1.12*(.68+.32*Math.pow(1-Math.abs(Math.sin(x*1.15+z*.78)),2));
   }
-  return -.3 + smooth(d,-.25,1.4)*h;
+  return -.3 + smooth(d,-.25,1.15)*h;
 }
 const cityLevels = CITY_SITES.map(p => Math.max(.9,rawHeight(p.x,p.y)));
 export function heightAt(x: number, z: number): number {
@@ -83,7 +83,7 @@ export function nearestCity(x: number,z: number): number {
 export function terrainGeometry(): THREE.BufferGeometry {
   const geo = new THREE.PlaneGeometry(76,48,260,165); geo.rotateX(-Math.PI/2);
   const positions=geo.attributes.position, colors:number[]=[];
-  const grass=new THREE.Color('#77945d'), forest=new THREE.Color('#486f50'), sand=new THREE.Color('#c8bb89'), rock=new THREE.Color('#8d9183'), snow=new THREE.Color('#d9ded3');
+  const grass=new THREE.Color('#799060'), forest=new THREE.Color('#3c6248'), sand=new THREE.Color('#d6c395'), rock=new THREE.Color('#777f79'), snow=new THREE.Color('#e3e9e4');
   for(let i=0;i<positions.count;i++){
     const x=positions.getX(i),z=positions.getZ(i),h=heightAt(x,z);positions.setY(i,h);
     const climate=climateAt(x,z);
@@ -98,7 +98,10 @@ export function terrainGeometry(): THREE.BufferGeometry {
     if(isNeutralLand(x,z)&&d>0)c.set('#939c98').multiplyScalar(.85+Math.min(h,3)*.06);
     c.multiplyScalar(.93+.07*Math.sin(x*4.1+z*3.3)); colors.push(c.r,c.g,c.b);
   }
-  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();return geo;
+  geo.computeVertexNormals();
+  const normals=geo.attributes.normal,cliff=new THREE.Color('#6c756c');
+  for(let i=0;i<positions.count;i++){const slope=1-Math.max(0,normals.getY(i)),h=positions.getY(i);if(h>.3){const c=new THREE.Color(colors[i*3],colors[i*3+1],colors[i*3+2]);c.lerp(cliff,smooth(slope,.23,.7)*.7);const strata=.96+.04*Math.sin(h*17+positions.getX(i)*.24);c.multiplyScalar(strata);colors[i*3]=c.r;colors[i*3+1]=c.g;colors[i*3+2]=c.b;}}
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));return geo;
 }
 export function ribbon(points: THREE.Vector3[],width:number): THREE.BufferGeometry {
   const positions:number[]=[],uvs:number[]=[],indices:number[]=[];

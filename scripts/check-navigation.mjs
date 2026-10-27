@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+const b=await build({entryPoints:['src/world/navigation.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {NavigationKeys}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+const k=new NavigationKeys();assert.equal(k.moving,false);assert.equal(k.multiplier,1);
+k.press('KeyW');assert.ok(k.moving);k.press('ShiftLeft');assert.equal(k.multiplier,2.5);k.release('ShiftLeft');assert.equal(k.multiplier,1);assert.ok(k.moving);
+k.press('ShiftRight');assert.equal(k.multiplier,2.5);k.clear();assert.equal(k.multiplier,1);assert.equal(k.moving,false);
+k.press('ArrowRight',true);assert.equal(k.multiplier,2.5);k.release('ShiftRight');assert.equal(k.multiplier,1,'Modifier state must not stick if Shift was held before the canvas gained focus');k.release('ArrowRight');assert.equal(k.moving,false);
+k.press('ShiftLeft');k.press('ShiftRight');k.release('ShiftLeft');assert.equal(k.multiplier,2.5);assert.equal(k.moving,false,'Shift alone does not move the map');k.release('ShiftRight');assert.equal(k.multiplier,1);
+assert.equal(k.press('KeyQ'),false);assert.equal(k.moving,false);
+console.log('Navigation passed: WASD/arrows, 2.5x speed, both Shift keys, modifier release and focus/reset safety.');

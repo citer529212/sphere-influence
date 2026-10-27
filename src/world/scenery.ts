@@ -16,16 +16,17 @@ function piece(group:THREE.Group,geometry:THREE.BufferGeometry,mat:THREE.Materia
 }
 export function cityModel(region:Region,index:number):THREE.Group {
   const group=new THREE.Group(),random=randomGenerator(400+index);
-  const walls=material('#d5c8a3'),trim=material('#b1a37d'),windows=material('#625e4a'),paving=material('#aaa68b');
-  const style=region.politicalOwner;
-  const roof=material(style==='atlas'?'#526e7a':style==='meridian'?'#986d55':'#688477');
+  const style=region.politicalOwner,capital=index<12&&index%4===0;
+  const walls=material(style==='concordat'?'#bba077':style==='meridian'?'#d1b395':'#ded7bd'),trim=material(style==='meridian'?'#8c5144':style==='concordat'?'#a88043':'#b9a982'),windows=material('#35444a'),paving=material('#aaa38c');
+  const roof=material(style==='atlas'?'#3e6076':style==='meridian'?'#8f493f':style==='concordat'?'#a4864c':'#677677');
   piece(group,cylinder,paving,0,.035,0,1.9,.07,1.9);
   // Small blocks form streets around a readable central landmark.
   for(let i=0;i<16;i++){
     const a=i*Math.PI*2/16,r=1.05+(i%3)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
     const h=.32+random()*.5,w=.3+random()*.15;
-    piece(group,box,walls,x,h/2+.07,z,w,h,w*.9,a);
-    piece(group,cone,roof,x,h+.21,z,w*.85,.28,w*.8,a+Math.PI/4);
+    if(style==='concordat'){piece(group,cylinder,walls,x,h/2+.07,z,w*.6,h,w*.6);piece(group,cone,roof,x,h+.16,z,w*.8,.32,w*.8);}
+    else{piece(group,box,walls,x,h/2+.07,z,w,h,w*.9,a);piece(group,cone,roof,x,h+.21,z,w*(style==='meridian'?1.1:.85),.28,w*.8,a+Math.PI/4);}
+
     piece(group,box,windows,x-.04,h*.6,z+w*.46,.08,.12,.015);
     if(i%4===0)piece(group,box,trim,x,h+.1,z,w*.9,.12,w*.9,a);
   }
@@ -41,22 +42,38 @@ export function cityModel(region:Region,index:number):THREE.Group {
     piece(group,box,trim,0,.06,.6,1.4,.12,.65);
     piece(group,cylinder,trim,0,1.6,0,.04,.25,.04);
   }else if(style==='meridian'){
-    piece(group,box,walls,0,.55,0,.85,1.1,.85);
-    piece(group,box,roof,0,1.14,0,.98,.12,.98);
-    for(const x of [-.56,.56])for(const z of [-.56,.56]){
-      piece(group,cylinder,walls,x,.55,z,.23,1.1,.23);
-      piece(group,cone,roof,x,1.24,z,.32,.32,.32,Math.PI/4);
+    // Tiered palace roofs and vermilion columns around a raised courtyard.
+    for(let level=0;level<(capital?4:3);level++){
+      const width=1.2-level*.2,y=.18+level*.46;
+      piece(group,box,walls,0,y+.17,0,width*.75,.34,width*.75);
+      piece(group,cone,roof,0,y+.43,0,width,.25,width,Math.PI/4);
+      piece(group,box,trim,0,y+.29,0,width*1.15,.06,width*1.15);
     }
-    for(let i=0;i<10;i++){const a=i*Math.PI*2/10;piece(group,box,trim,Math.cos(a)*1.95,.16,Math.sin(a)*1.95,.34,.32,.15,-a);}
+    for(const x of [-.65,.65]){piece(group,cylinder,trim,x,.5,.65,.055,.85,.055);}
+    piece(group,box,roof,0,.96,.65,1.65,.12,.35);
+    piece(group,cylinder,trim,0,capital?2.4:1.95,0,.035,.35,.035);
   }else{
-    for(let i=0;i<3;i++){
-      const width=.85-i*.16;
-      piece(group,box,walls,0,.3+i*.45,0,width,.5,width);
-      piece(group,cone,roof,0,.6+i*.45,0,width*.95,.25,width*.95,Math.PI/4);
+    // Earthen terraces, a council courtyard and a stepped civic tower.
+    piece(group,cylinder,trim,0,.12,0,.9,.24,.9);
+    for(let level=0;level<(capital?4:3);level++){
+      const width=1.05-level*.18,y=.28+level*.4;
+      piece(group,box,walls,0,y,0,width,.42,width);
+      piece(group,box,roof,0,y+.24,0,width+.08,.09,width+.08);
+      for(const x of [-width*.4,width*.4])piece(group,box,trim,x,y+.32,width*.4,.08,.18,.08);
     }
-    piece(group,cylinder,trim,0,1.8,0,.04,.35,.04);
-    for(const x of [-.75,.75])piece(group,box,walls,x,.2,.65,.28,.4,.28);
-    piece(group,box,roof,0,.48,.65,1.95,.12,.4);
+    for(const x of [-.85,.85]){piece(group,cylinder,walls,x,.36,.3,.26,.72,.26);piece(group,cone,roof,x,.86,.3,.38,.35,.38);}
+    piece(group,box,windows,0,.24,.57,.18,.35,.04);
+  }
+  if(style==='atlas'){
+    // A clock tower gives the maritime cities a distinct skyline.
+    const y=capital?1.8:1.35;
+    piece(group,box,walls,-.6,y*.5,-.35,.3,y,.3);
+    piece(group,box,windows,-.6,y-.23,-.19,.19,.2,.015);
+    piece(group,cone,roof,-.6,y+.22,-.35,.32,.5,.32,Math.PI/4);
+  }
+  if(capital){
+    const gold=material('#d7b766');
+    for(let i=0;i<8;i++){const a=i*Math.PI/4;piece(group,cylinder,gold,Math.cos(a)*.94,.13,Math.sin(a)*.94,.055,.26,.055);}
   }
   return group;
 }

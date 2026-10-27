@@ -9,6 +9,7 @@ import { CITY_SITES, TERRITORIES, RIVERS, channel, coastDistance, heightAt, near
 import { batchStatic, cityModel, FACTION_COLORS, material, sharedAssetGeometries, vegetation } from './scenery';
 import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
+import { NavigationKeys } from './navigation';
 
 export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
@@ -23,12 +24,12 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate=false;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
-  const canvas=renderer.domElement;canvas.tabIndex=0;canvas.setAttribute('aria-label','3D-карта трёх материков. WASD — перемещение камеры. Перетаскивайте для вращения, прокручивайте для приближения. Выбор городов доступен также в списке.');container.appendChild(canvas);
-  const scene=new THREE.Scene();scene.background=new THREE.Color('#21404c');scene.fog=new THREE.FogExp2('#21404c',.0035);
+  const canvas=renderer.domElement;canvas.tabIndex=0;canvas.setAttribute('aria-label','3D-карта трёх материков. WASD — перемещение камеры, Shift — ускорение. Перетаскивайте для вращения, прокручивайте для приближения. Выбор городов доступен также в списке.');container.appendChild(canvas);
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#142f40');scene.fog=new THREE.FogExp2('#19394a',.0028);
   const camera=new THREE.PerspectiveCamera(39,1,.1,600);
   const controls=new OrbitControls(camera,canvas);controls.enableDamping=!reduced;controls.dampingFactor=.085;controls.minDistance=10;controls.maxDistance=220;controls.minPolarAngle=.22;controls.maxPolarAngle=Math.PI*.43;controls.screenSpacePanning=false;controls.maxTargetRadius=40;
-  scene.add(new THREE.HemisphereLight('#dfebeb','#465842',1.7));
-  const sun=new THREE.DirectionalLight('#fff0ce',2.8);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
+  scene.add(new THREE.HemisphereLight('#d9eaf2','#48533c',1.45));
+  const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
   Object.assign(sun.shadow.camera,{left:-39,right:39,top:30,bottom:-30,near:1,far:100});sun.shadow.normalBias=.11;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun);
   const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);
   const water=createWater();scene.add(water);
@@ -39,8 +40,10 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const broadcast=new THREE.Group();
   const connections=MEDIA_LINKS.map(([a,b])=>{
     const from=CITY_SITES[a],to=CITY_SITES[b],start=new THREE.Vector3(from.x,heightAt(from.x,from.y)+.6,from.y),end=new THREE.Vector3(to.x,heightAt(to.x,to.y)+.6,to.y),mid=start.clone().lerp(end,.5);mid.y=Math.max(start.y,end.y)+1.5+from.distanceTo(to)*.04;
-    const curve=new THREE.CatmullRomCurve3([start,mid,end]),line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(32)),new THREE.LineBasicMaterial({color:'#9cb2b2',transparent:true,opacity:.4,depthWrite:false}));broadcast.add(line);return {a,b,line};
-  });scene.add(broadcast);
+    const curve=new THREE.CatmullRomCurve3([start,mid,end]),line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(32)),new THREE.LineBasicMaterial({color:'#9cb2b2',transparent:true,opacity:.4,depthWrite:false}));broadcast.add(line);return {a,b,line,curve,active:false};
+  });
+  const signals=new THREE.InstancedMesh(new THREE.SphereGeometry(economy?.11:.14,economy?5:8,5),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,depthWrite:false}),connections.length);signals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);signals.frustumCulled=false;broadcast.add(signals);scene.add(broadcast);
+  const signalMatrix=new THREE.Matrix4(),signalPosition=new THREE.Vector3(),signalScale=new THREE.Vector3(),signalRotation=new THREE.Quaternion(),signalColor=new THREE.Color();
   const roads=roadPaths();
   const roadGeos=roads.map(path=>ribbon(path,.2));
   const roadMesh=new THREE.Mesh(mergeGeometries(roadGeos)!,material('#c0af87'));roadGeos.forEach(g=>g.dispose());roadMesh.receiveShadow=true;scene.add(roadMesh);
@@ -76,12 +79,12 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const border=new THREE.Mesh(ribbon(points,.11),borderMat);scene.add(border);
     const ringGeometry=new THREE.RingGeometry(2.05,2.13,64);ringGeometry.rotateX(-Math.PI/2);const ringVertices=ringGeometry.attributes.position;for(let i=0;i<ringVertices.count;i++)ringVertices.setY(i,heightAt(center.x+ringVertices.getX(i),center.y+ringVertices.getZ(i))+.12);const ring=new THREE.Mesh(ringGeometry,new THREE.MeshBasicMaterial({color:'#f6db9a',transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(center.x,0,center.y);scene.add(ring);
     const wave=new THREE.Mesh(new THREE.RingGeometry(1.9,2.06,64),new THREE.MeshBasicMaterial({color:FACTION_COLORS[region.infoController],transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));wave.rotation.x=-Math.PI/2;wave.position.set(center.x,ground+.1,center.y);wave.visible=false;scene.add(wave);
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.025,.035,2.9,6),material('#bca986'));pole.position.set(center.x+.25,ground+1.45,center.y+.25);scene.add(pole);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.025,.035,2.9,6),material('#bca986'));pole.position.set(center.x+.9,ground+1.45,center.y+.4);scene.add(pole);
     const flagGeo=new THREE.PlaneGeometry(.85,.42,7,2);flagGeo.translate(.425,0,0);
-    const flag=new THREE.Mesh(flagGeo,new THREE.MeshStandardMaterial({color:FACTION_COLORS[region.infoController],side:THREE.DoubleSide,roughness:.8}));flag.position.set(center.x+.25,ground+2.62,center.y+.25);scene.add(flag);
+    const flag=new THREE.Mesh(flagGeo,new THREE.MeshStandardMaterial({color:FACTION_COLORS[region.infoController],side:THREE.DoubleSide,roughness:.8}));flag.position.set(center.x+.9,ground+2.62,center.y+.4);scene.add(flag);
     const node=new THREE.Group();node.position.set(center.x-1.65,ground,center.y-.6);
     const mastMat=material('#b4bdb2'),tower=new THREE.Mesh(new THREE.CylinderGeometry(.045,.15,2.15,6),mastMat);tower.position.y=1.075;tower.castShadow=true;node.add(tower);
-    const dish=new THREE.Mesh(new THREE.SphereGeometry(.28,10,6,0,Math.PI*2,0,Math.PI/2),mastMat);dish.position.set(.1,1.8,0);dish.rotation.z=.75;node.add(dish);scene.add(node);
+    const dish=new THREE.Mesh(new THREE.SphereGeometry(.28,10,6,0,Math.PI*2,0,Math.PI/2),mastMat);dish.position.set(.1,1.8,0);dish.rotation.z=.75;node.add(dish);const beacon=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),new THREE.MeshBasicMaterial({color:'#ffe2a0'}));beacon.position.y=2.2;node.add(beacon);scene.add(node);
     const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
     visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
@@ -95,8 +98,9 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   let state=initial,currentTime=0,announcementTimer:ReturnType<typeof setTimeout>|undefined;
   const update=(next:WorldState)=>{
     state=next;broadcast.visible=!!next.network;
-    for(const {a,b,line} of connections){const active=next.reachableIds?.includes(next.regions[a]?.id)&&next.reachableIds?.includes(next.regions[b]?.id);line.material.color.set(active?FACTION_COLORS[next.player??'atlas']:'#8a9f9f');line.material.opacity=active?.72:.14;}
+    for(const connection of connections){const {a,b,line}=connection;const active=next.reachableIds?.includes(next.regions[a]?.id)&&next.reachableIds?.includes(next.regions[b]?.id);connection.active=!!active;line.material.color.set(active?FACTION_COLORS[next.player??'atlas']:'#8a9f9f');line.material.opacity=active?.72:.14;}
 
+    signalColor.set(FACTION_COLORS[next.player??'atlas']);connections.forEach((_,i)=>signals.setColorAt(i,signalColor));if(signals.instanceColor)signals.instanceColor.needsUpdate=true;
     visuals.forEach(v=>{
       const region=next.regions.find(r=>r.id===v.id);if(!region)return;
       v.targetBorder.set(FACTION_COLORS[next.layer==='political'?region.politicalOwner:region.infoController]);v.targetFlag.set(FACTION_COLORS[region.infoController]);
@@ -119,8 +123,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
         v.badge.textContent=`${icon} ${event.captured?'Повестка лидирует':event.kind==='media'?'Центр +1':event.kind==='blocked'?'Защищён':`+${event.amount}`}`;
         v.badge.hidden=false;v.badge.style.setProperty('--action-color',FACTION_COLORS[event.actor]);v.badge.classList.remove('animate');void v.badge.offsetWidth;v.badge.classList.add('animate');
         if(event.kind==='media')v.buildStart=currentTime;
-        if(event.kind==='opponent'&&!reduced){
-          const sourceIndex=next.regions.findIndex(r=>r.politicalOwner===event.actor),from=CITY_SITES[Math.max(0,sourceIndex)];
+        if((event.kind==='opponent'||event.kind==='attract'||event.kind==='event')&&!reduced){
+          const sourceIndex=next.regions.findIndex(r=>r.infoController===event.actor&&r.mediaNodes[event.actor]>0) >= 0 ? next.regions.findIndex(r=>r.infoController===event.actor&&r.mediaNodes[event.actor]>0) : next.regions.findIndex(r=>r.politicalOwner===event.actor),from=CITY_SITES[Math.max(0,sourceIndex)];
           const a=new THREE.Vector3(from.x,heightAt(from.x,from.y)+2,from.y),b=new THREE.Vector3(v.center.x,v.ground+2,v.center.y),mid=a.clone().lerp(b,.5);mid.y+=5;
           const curve=new THREE.CatmullRomCurve3([a,mid,b]);const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));geo.setDrawRange(0,1);
           const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:FACTION_COLORS[event.actor],transparent:true,opacity:.8}));
@@ -133,14 +137,14 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     renderer.shadowMap.needsUpdate=true;
   };update(initial);
   let travel:{position:THREE.Vector3;target:THREE.Vector3}|null=null;
-  let keyboardEnabled=true;const held=new Set<string>();
-  const clearKeys=()=>held.clear();
+  let keyboardEnabled=true;const navigation=new NavigationKeys(),held=navigation.held;
+  const clearKeys=()=>navigation.clear();
   const keydown=(event:KeyboardEvent)=>{
     const tag=(event.target as HTMLElement)?.tagName;
     if(!keyboardEnabled||!controls.enabled||document.hidden||document.querySelector('[role="dialog"]')||['INPUT','TEXTAREA','SELECT'].includes(tag)||(event.target as HTMLElement)?.isContentEditable||event.metaKey||event.ctrlKey||event.altKey)return;
-    if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)){event.preventDefault();held.add(event.code);travel=null;}
+    if(navigation.press(event.code,event.shiftKey)){if(!event.code.startsWith('Shift')){event.preventDefault();travel=null;}}
   };
-  const keyup=(event:KeyboardEvent)=>held.delete(event.code);
+  const keyup=(event:KeyboardEvent)=>navigation.release(event.code);
   window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
   const reset=()=>{
     const fit=Math.max(1,1.65/(container.clientWidth/container.clientHeight));
@@ -184,18 +188,19 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     if(document.hidden||!visible)return;
     const dt=Math.min(elapsed/1000,.05);currentTime+=dt;
     if(travel){const amount=1-Math.exp(-dt*6);camera.position.lerp(travel.position,amount);controls.target.lerp(travel.target,amount);if(camera.position.distanceTo(travel.position)<.03)travel=null;}
-    if(held.size&&keyboardEnabled&&controls.enabled){
+    if(navigation.moving&&keyboardEnabled&&controls.enabled){
       const forward=controls.target.clone().sub(camera.position);forward.y=0;forward.normalize();
       const right=new THREE.Vector3(-forward.z,0,forward.x),delta=new THREE.Vector3();
       if(held.has('KeyW')||held.has('ArrowUp'))delta.add(forward);
       if(held.has('KeyS')||held.has('ArrowDown'))delta.sub(forward);
       if(held.has('KeyD')||held.has('ArrowRight'))delta.add(right);
       if(held.has('KeyA')||held.has('ArrowLeft'))delta.sub(right);
-      delta.normalize().multiplyScalar(dt*Math.max(7,camera.position.distanceTo(controls.target)*.32));
+      delta.normalize().multiplyScalar(dt*Math.max(7,camera.position.distanceTo(controls.target)*.32)*navigation.multiplier);
       const target=controls.target.clone().add(delta);target.x=THREE.MathUtils.clamp(target.x,-36,36);target.z=THREE.MathUtils.clamp(target.z,-23,23);
       delta.copy(target).sub(controls.target);camera.position.add(delta);controls.target.copy(target);
     }
     controls.update();water.material.uniforms.time.value=reduced?0:currentTime;
+    if(broadcast.visible){connections.forEach((connection,i)=>{connection.curve.getPoint(reduced?.5:(currentTime*.17+i*.137)%1,signalPosition);signalMatrix.compose(signalPosition,signalRotation,signalScale.setScalar(connection.active?1:0));signals.setMatrixAt(i,signalMatrix);});signals.instanceMatrix.needsUpdate=true;}
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);
       const age=currentTime-v.pulseStart;
@@ -223,8 +228,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       ctx.putImageData(image,0,0);return output.toDataURL('image/png');
     }finally{renderer.setRenderTarget(previous);target.dispose();}
   };
-  const setInteraction=(enabled:boolean)=>{controls.enabled=enabled;canvas.style.touchAction=enabled?'none':'pan-y';active.clear();multiTouch=false;held.clear();};
-  return {update,reset,focus,capture,setInteraction,setKeyboard:enabled=>{keyboardEnabled=enabled;held.clear();},zoom:factor=>{travel=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();},dispose:()=>{
+  const setInteraction=(enabled:boolean)=>{controls.enabled=enabled;canvas.style.touchAction=enabled?'none':'pan-y';active.clear();multiTouch=false;navigation.clear();};
+  return {update,reset,focus,capture,setInteraction,setKeyboard:enabled=>{keyboardEnabled=enabled;navigation.clear();},zoom:factor=>{travel=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();},dispose:()=>{
     window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);
     clearMessenger();cancelAnimationFrame(frame);clearTimeout(announcementTimer);resize.disconnect();observer.disconnect();controls.removeEventListener('start',stopTravel);controls.dispose();
     canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',cancel);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('webglcontextlost',contextLost);

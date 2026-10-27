@@ -147,7 +147,7 @@ export function RulesGuide({
         )}
       </details>
       <p className="guide-controls">
-        WASD / стрелки — перемещение · колесо — масштаб · на телефоне: один
+        WASD / стрелки — перемещение · Shift — ускорение ×2,5 · колесо — масштаб · на телефоне: один
         палец — вращение, два — масштаб. Правила всегда доступны по кнопке «?».
       </p>
       <button className="guide-start" onClick={onClose}>

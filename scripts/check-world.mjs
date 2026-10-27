@@ -19,4 +19,11 @@ assert.ok(heightAt(37,23)<0,'Offshore terrain must be submerged');
 const roads=roadPaths();assert.ok(roads.length>=11,'The mainland cities need local road segments');
 roads.forEach(path=>path.forEach(p=>assert.ok(p.y>=heightAt(p.x,p.z),'Roads must not sink beneath the terrain')));
 geometry.dispose();
+const cityBundle=await build({entryPoints:['src/world/scenery.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const scenery=await import(`data:text/javascript;base64,${Buffer.from(cityBundle.outputFiles[0].text).toString('base64')}`);
+const rulesBundle=await build({entryPoints:['src/game/quickGame.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const game=await import(`data:text/javascript;base64,${Buffer.from(rulesBundle.outputFiles[0].text).toString('base64')}`);
+const groups=game.createQuickGame('visual-regression').regions.map((region,i)=>scenery.cityModel(region,i));
+const palettes=new Set();for(const group of groups){const colors=new Set();group.updateMatrixWorld(true);group.traverse(object=>{if(!object.isMesh)return;for(const n of object.matrixWorld.elements)assert.ok(Number.isFinite(n));for(const value of object.geometry.attributes.position.array)assert.ok(Number.isFinite(value));colors.add(object.material.color.getHexString());});palettes.add([...colors].sort().join(','));}assert.ok(palettes.size>=4,'Each realm and neutral cities must keep distinct architecture palettes');
+const batched=scenery.batchStatic(groups);assert.ok(batched.children.length<40,'Urban detail must stay batched by material');for(const mesh of batched.children){for(const value of mesh.geometry.attributes.position.array)assert.ok(Number.isFinite(value));mesh.geometry.dispose();mesh.material.dispose();}
 console.log('World checks passed: 16 land-based cities, picking, downhill rivers, finite geometry and raised road network.');
