@@ -52,15 +52,30 @@ export function channel(x: number, z: number): { distance: number; bed: number }
 function noise(x: number, z: number): number {
   return Math.sin(x*.36+Math.cos(z*.3))*Math.cos(z*.46+x*.12)*.36 + Math.sin(x*1.1-z*.85)*.1 + Math.cos(x*2.7+z*1.7)*.035;
 }
-const peaks = [ [-10,-6,4.4,3.8,1.9], [-4,-5,5.4,3.2,2.2], [3,-5,4.9,2.7,1.9], [11,-4,4.3,3.4,2], [14,4,2.6,2.7,2], [-22,-5,2.5,2,1.9] ];
+// Connected spines with branching foothills, anchored to each mainland.
+export const RIDGES = [
+  [[-28,-12],[-23,-7],[-18,-3],[-12,-2]],
+  [[-9,-9],[-4,-6],[3,-5],[10,-2],[13,4]],
+  [[21,-13],[24,-7],[25,-1],[24,5],[26,10]]
+] as const;
+export function ridgeHeight(x:number,z:number):number {
+  let height=0;
+  for(const ridge of RIDGES)for(let i=1;i<ridge.length;i++){
+    const a=ridge[i-1],b=ridge[i],dx=b[0]-a[0],dz=b[1]-a[1],t=THREE.MathUtils.clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz),0,1);
+    const distance=Math.hypot(x-a[0]-dx*t,z-a[1]-dz*t),fold=.78+.22*Math.cos((x+z)*2.1);
+    height=Math.max(height,Math.exp(-distance*distance/3.1)*3.5*fold+Math.exp(-distance*distance/15)*.65);
+  }
+  return height;
+}
+export function climateWeights(x:number,z:number){
+  const polar=1-smooth(z+Math.sin(x*.2)*.65,-12,-8),south=smooth(z+Math.sin(x*.19)*.6,5,10),tropical=south*smooth(x,12,18);
+  return {polar,arid:south-tropical,tropical,temperate:1-polar-south};
+}
 function rawHeight(x: number,z: number): number {
   const d = coastDistance(x,z);
   if (d < -.7) return -1.5-Math.min(4,-d*.3);
   let h = 1.05 + noise(x,z);
-  for (const [px,pz,height,sx,sz] of peaks) {
-    const dx=(x-px)/sx,dz=(z-pz)/sz;
-    h += Math.exp(-(dx*dx+dz*dz)*.65)*height*1.12*(.68+.32*Math.pow(1-Math.abs(Math.sin(x*1.15+z*.78)),2));
-  }
+  h += ridgeHeight(x,z);
   return -.3 + smooth(d,-.25,1.15)*h;
 }
 const cityLevels = CITY_SITES.map(p => Math.max(.9,rawHeight(p.x,p.y)));
@@ -68,7 +83,7 @@ export function heightAt(x: number, z: number): number {
   let h = rawHeight(x,z);
   if (coastDistance(x,z) < -.7) return h;
   const water = channel(x,z);
-  if (water.distance < 1.5) h = THREE.MathUtils.lerp(Math.min(h,water.bed-.13),h,smooth(water.distance,.24,1.5));
+  if (water.distance < 2.1) h = THREE.MathUtils.lerp(Math.min(h,water.bed-.13),h,smooth(water.distance,.24,2.1));
   CITY_SITES.forEach((p,i) => {
     const d = Math.hypot(x-p.x,z-p.y);
     if(d<2.8) h=THREE.MathUtils.lerp(cityLevels[i],h,smooth(d,1.65,2.8));
@@ -86,11 +101,11 @@ export function terrainGeometry(): THREE.BufferGeometry {
   const grass=new THREE.Color('#799060'), forest=new THREE.Color('#3c6248'), sand=new THREE.Color('#d6c395'), rock=new THREE.Color('#777f79'), snow=new THREE.Color('#e3e9e4');
   for(let i=0;i<positions.count;i++){
     const x=positions.getX(i),z=positions.getZ(i),h=heightAt(x,z);positions.setY(i,h);
-    const climate=climateAt(x,z);
+    const weights=climateWeights(x,z);
     const d=coastDistance(x,z), c=grass.clone().lerp(forest,THREE.MathUtils.clamp(.35+noise(x*.6,z*.6),0,1));
-    if(climate==='polar')c.lerp(snow,.72);
-    if(climate==='arid')c.lerp(new THREE.Color('#c3a36c'),.8);
-    if(climate==='tropical')c.lerp(forest,.7);
+    c.lerp(snow,weights.polar*.72);
+    c.lerp(new THREE.Color('#c3a36c'),weights.arid*.8);
+    c.lerp(forest,weights.tropical*.7);
     if(d<2)c.lerp(sand,1-smooth(d,.4,2));
     if(h>2.2)c.lerp(rock,smooth(h,2.2,4.2));
     if(h>4.1)c.lerp(snow,smooth(h,4.1,5.8));

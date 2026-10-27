@@ -12,6 +12,7 @@ import { createWater } from './water';
 import { NavigationKeys } from './navigation';
 import { createLivingMap, influencePulse } from './livingMap';
 import { createOpinionTint, opinion } from './opinion';
+import { harborModel } from './harbors';
 
 export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
@@ -90,6 +91,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const support=document.createElement('span');support.className='city-opinion';label.appendChild(support);const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
     visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,support,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
+  CITY_SITES.forEach((_,i)=>{if(i%4===0||i%4===3||i>=12){const port=harborModel(i);if(port)staticGroups.push(port);}});
   const urban=batchStatic(staticGroups);scene.add(urban);
   const living=createLivingMap(economy,reduced);scene.add(living.group);
   // Originals are CPU-only inputs for batching, so release their allocations as well.

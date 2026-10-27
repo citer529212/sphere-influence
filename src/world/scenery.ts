@@ -71,6 +71,18 @@ export function cityModel(region:Region,index:number):THREE.Group {
     piece(group,box,windows,-.6,y-.23,-.19,.19,.2,.015);
     piece(group,cone,roof,-.6,y+.22,-.35,.32,.5,.32,Math.PI/4);
   }
+  // A second ring of grounded blocks gives capitals a broader urban footprint.
+  if(capital){
+    const site=CITY_SITES[index],level=heightAt(site.x,site.y);
+    for(let i=0;i<24;i++){
+      const a=i*Math.PI/12,r=2.05+(i%2)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
+      if(coastDistance(site.x+x,site.y+z)<.4||channel(site.x+x,site.y+z).distance<.5)continue;
+      const y=heightAt(site.x+x,site.y+z)-level,h=.35+random()*.45;
+      piece(group,box,walls,x,y+h/2,z,.32,h,.35,a);
+      piece(group,cone,roof,x,y+h+.15,z,.34,.24,.34,a+Math.PI/4);
+      piece(group,box,windows,x,y+h*.6,z+.18,.07,.11,.015);
+    }
+  }
   if(capital){
     const gold=material('#d7b766');
     for(let i=0;i<8;i++){const a=i*Math.PI/4;piece(group,cylinder,gold,Math.cos(a)*.94,.13,Math.sin(a)*.94,.055,.26,.055);}
