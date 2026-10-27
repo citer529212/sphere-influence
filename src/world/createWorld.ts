@@ -13,8 +13,10 @@ import { NavigationKeys } from './navigation';
 import { createLivingMap, influencePulse } from './livingMap';
 import { createOpinionTint, opinion } from './opinion';
 import { harborModel } from './harbors';
+import { createDaylight, LightingMode } from './daylight';
+import { createNewsrooms } from './newsrooms';
 
-export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null};
+export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;lighting?:LightingMode;reachableIds?:string[];actionEvent?:ActionEvent|null};
 export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
 type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;support:HTMLSpanElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
@@ -31,7 +33,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const scene=new THREE.Scene();scene.background=new THREE.Color('#142f40');scene.fog=new THREE.FogExp2('#19394a',.0028);
   const camera=new THREE.PerspectiveCamera(39,1,.1,600);
   const controls=new OrbitControls(camera,canvas);controls.enableDamping=!reduced;controls.dampingFactor=.085;controls.minDistance=10;controls.maxDistance=220;controls.minPolarAngle=.22;controls.maxPolarAngle=Math.PI*.43;controls.screenSpacePanning=false;controls.maxTargetRadius=40;
-  scene.add(new THREE.HemisphereLight('#d9eaf2','#48533c',1.45));
+  const sky=new THREE.HemisphereLight('#d9eaf2','#48533c',1.45);scene.add(sky);
   const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
   Object.assign(sun.shadow.camera,{left:-39,right:39,top:30,bottom:-30,near:1,far:100});sun.shadow.normalBias=.11;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun);
   const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry);
@@ -94,6 +96,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   CITY_SITES.forEach((_,i)=>{if(i%4===0||i%4===3||i>=12){const port=harborModel(i);if(port)staticGroups.push(port);}});
   const urban=batchStatic(staticGroups);scene.add(urban);
   const living=createLivingMap(economy,reduced);scene.add(living.group);
+  const newsrooms=createNewsrooms(reduced);scene.add(newsrooms.group);
+  const daylight=createDaylight(scene,sun,sky,water.material,reduced);
   // Originals are CPU-only inputs for batching, so release their allocations as well.
   const sourceGeometries=new Set<THREE.BufferGeometry>(sharedAssetGeometries());staticGroups.forEach(g=>g.traverse(o=>{if(o instanceof THREE.Mesh)sourceGeometries.add(o.geometry);}));sourceGeometries.forEach(g=>g.dispose());
   renderer.shadowMap.needsUpdate=true;
@@ -102,7 +106,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const clearMessenger=()=>{if(!messenger)return;scene.remove(messenger.line,messenger.orb);messenger.line.geometry.dispose();messenger.line.material.dispose();messenger.orb.geometry.dispose();messenger.orb.material.dispose();messenger=null;};
   let state=initial,currentTime=0,announcementTimer:ReturnType<typeof setTimeout>|undefined;
   const update=(next:WorldState)=>{
-    state=next;broadcast.visible=!!next.network;opinionTint.update(next.regions,next.layer==='information');
+    state=next;newsrooms.sync(next.regions,currentTime);daylight.update(currentTime,next.lighting);renderer.shadowMap.needsUpdate=true;broadcast.visible=!!next.network;opinionTint.update(next.regions,next.layer==='information');
     for(const connection of connections){const {a,b,line}=connection;const active=next.reachableIds?.includes(next.regions[a]?.id)&&next.reachableIds?.includes(next.regions[b]?.id);connection.active=!!active;line.material.color.set(active?FACTION_COLORS[next.player??'atlas']:'#8a9f9f');line.material.opacity=active?.72:.14;}
 
     signalColor.set(FACTION_COLORS[next.player??'atlas']);connections.forEach((_,i)=>signals.setColorAt(i,signalColor));if(signals.instanceColor)signals.instanceColor.needsUpdate=true;
@@ -208,7 +212,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       const target=controls.target.clone().add(delta);target.x=THREE.MathUtils.clamp(target.x,-36,36);target.z=THREE.MathUtils.clamp(target.z,-23,23);
       delta.copy(target).sub(controls.target);camera.position.add(delta);controls.target.copy(target);
     }
-    controls.update();water.material.uniforms.time.value=reduced?0:currentTime;living.update(currentTime);
+    controls.update();water.material.uniforms.time.value=reduced?0:currentTime;living.update(currentTime);if(newsrooms.update(currentTime))renderer.shadowMap.needsUpdate=true;if(daylight.update(currentTime,state.lighting))renderer.shadowMap.needsUpdate=true;
     if(broadcast.visible){connections.forEach((connection,i)=>{connection.curve.getPoint(reduced?.5:(currentTime*.17+i*.137)%1,signalPosition);signalMatrix.compose(signalPosition,signalRotation,signalScale.setScalar(connection.active?1:0));signals.setMatrixAt(i,signalMatrix);});signals.instanceMatrix.needsUpdate=true;}
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);

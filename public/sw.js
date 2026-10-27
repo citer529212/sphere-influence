@@ -1,5 +1,5 @@
 // Scope caches to this game; never clear other projects on the same Pages origin.
-const CACHE='sphere-influence-0.11.0-rules6';
+const CACHE='sphere-influence-0.12.0-rules6';
 self.addEventListener('install',event=>{event.waitUntil(self.skipWaiting());});
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('sphere-influence-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
