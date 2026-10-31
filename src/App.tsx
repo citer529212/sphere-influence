@@ -74,6 +74,7 @@ const WorldScene = lazy(() =>
 const ResultCard = lazy(() =>
   import("./ui/ResultCard").then((m) => ({ default: m.ResultCard })),
 );
+const Tutorial = lazy(() => import("./ui/Tutorial"));
 const ACTION_ICONS = { media: "◈", attract: "⚑", protect: "◇" };
 const tutorial = [
   {
@@ -137,6 +138,7 @@ export default function App(): JSX.Element {
     [restartOpen, setRestartOpen] = useState(false),
     [resultOpen, setResultOpen] = useState(!!game.result);
   const [eventOpen, setEventOpen] = useState(false);
+  const [learning, setLearning] = useState(false);
   const [saved, setSaved] = useState(true),
     [challenge, setChallenge] = useState(boot.challenge),
     [code, setCode] = useState(""),
@@ -167,6 +169,8 @@ export default function App(): JSX.Element {
       setIntroduction(true);
       setRules(true);
     }, []);
+  const openLearning = useCallback(() => {setMenu(false);setRules(false);setIntroduction(false);setLearning(true);}, []);
+  const closeLearning = useCallback((complete:boolean) => {setLearning(false);if(complete)setPreferences(p=>({...p,tutorialStep:3}));}, []);
   const player = game.player,
     realm = REALMS[player],
     region = game.regions.find((r) => r.id === selectedId) ?? game.regions[0],
@@ -189,6 +193,7 @@ export default function App(): JSX.Element {
     .filter((r) => r.goal && (r.held > 0 || r.cities >= r.goal - 1))
     .sort((a, b) => b.held - a.held || b.cities - a.cities)[0];
   const overlayOpen =
+    learning ||
     selection ||
     opening ||
     menu ||
@@ -202,6 +207,7 @@ export default function App(): JSX.Element {
     if (pendingEvent && !busy && !overlayOpen) setEventOpen(true);
   }, [
     game.turn,
+    learning,
     busy,
     selection,
     opening,
@@ -235,6 +241,7 @@ export default function App(): JSX.Element {
   };
   const blocked =
     busy ||
+    learning ||
     selection ||
     opening ||
     menu ||
@@ -873,6 +880,7 @@ export default function App(): JSX.Element {
             Карта {game.seed} · {mode.name} · Правила {RULESET_VERSION}
           </p>
           <div className="settings-buttons">
+            <button onClick={openLearning}>Подробное обучение · 22 этапа</button>
             <button onClick={() => {setMenu(false);setOpening(true);}}>Смотреть вступление</button>
             <button onClick={toggleSound}>
               {preferences.sound ? "Звук: вкл" : "Звук: выкл"}
@@ -929,6 +937,7 @@ export default function App(): JSX.Element {
       )}
       {rules && (
         <RulesGuide
+          onLearn={openLearning}
           game={game}
           onClose={closeRules}
           introduction={introduction}
@@ -1074,6 +1083,7 @@ export default function App(): JSX.Element {
           </div>
         </Modal>
       )}
+      {learning && <AssetBoundary fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось открыть обучение</h2><p>Основная партия сохранена. Попробуйте открыть обучение ещё раз.</p><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
       {restartOpen && (
         <Modal titleId="restart-title" onClose={closeRestart}>
           <h2 id="restart-title">Начать заново?</h2>

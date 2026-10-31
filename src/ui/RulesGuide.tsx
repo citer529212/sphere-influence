@@ -7,11 +7,13 @@ export function RulesGuide({
   onClose,
   introduction = false,
   notice,
+  onLearn,
 }: {
   game: QuickState;
   onClose: () => void;
   introduction?: boolean;
   notice?: string;
+  onLearn?: () => void;
 }): JSX.Element {
   const mode = objective(game),
     race = rivalObjective(game);
@@ -153,8 +155,9 @@ export function RulesGuide({
         WASD / стрелки — перемещение · Shift — ускорение ×2,5 · колесо — масштаб · на телефоне: один
         палец — вращение, два — масштаб. Правила всегда доступны по кнопке «?».
       </p>
+      {onLearn&&<button className="guide-start" onClick={onLearn}>Пошаговое обучение · 22 этапа с практикой →</button>}
       <button className="guide-start" onClick={onClose}>
-        {introduction ? "Начать игру →" : "Вернуться к карте"}
+        {introduction ? "Сразу к игре →" : "Вернуться к карте"}
       </button>
     </Modal>
   );
