@@ -1,11 +1,13 @@
 // Scope caches to this game; never clear other projects on the same Pages origin.
-const CACHE='sphere-influence-0.12.0-rules6';
+const CACHE='sphere-influence-0.13.0-rules6';
 self.addEventListener('install',event=>{event.waitUntil(self.skipWaiting());});
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('sphere-influence-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch',event=>{
   const request=event.request,url=new URL(request.url),scope=new URL(self.registration.scope);
+  // Let the browser stream video byte ranges; Cache.put does not accept 206 responses.
+  if(request.headers.has('range')||url.pathname.includes('/cinematics/'))return;
   if(request.method!=='GET'||url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE),asset=url.pathname.includes('/assets/');

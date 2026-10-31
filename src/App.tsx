@@ -873,6 +873,7 @@ export default function App(): JSX.Element {
             Карта {game.seed} · {mode.name} · Правила {RULESET_VERSION}
           </p>
           <div className="settings-buttons">
+            <button onClick={() => {setMenu(false);setOpening(true);}}>Смотреть вступление</button>
             <button onClick={toggleSound}>
               {preferences.sound ? "Звук: вкл" : "Звук: выкл"}
             </button>
@@ -1090,7 +1091,7 @@ export default function App(): JSX.Element {
           onCancel={() => setSelection(false)}
         />
       )}
-      {opening && <Opening faction={player} onDone={finishOpening} />}
+      {opening && <Opening faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
     </div>
   );
 }

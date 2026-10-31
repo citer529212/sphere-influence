@@ -1,0 +1,38 @@
+{
+  "transition": {
+    "type": "dissolve",
+    "seconds": 0.3
+  },
+  "chapters": [
+    0,
+    4.7416670000000005,
+    12.741667
+  ],
+  "sources": [
+    {
+      "file": "вступления_1.mp4",
+      "sha256": "5d92af1442b05a41ecea0ff4b679952e9961f1694336cb53077a42f4d2b82ae1",
+      "duration": 5.041667
+    },
+    {
+      "file": "2 порвали.mp4",
+      "sha256": "bba28b08658f78758570eef43a09ed312799d41ba3b2a63267b364d438c5b0c7",
+      "duration": 8.0
+    },
+    {
+      "file": "синий финал.mp4",
+      "sha256": "1869817516d4b6062153a83557670d807444da943035b0c152fceb214d280b02",
+      "duration": 8.0
+    },
+    {
+      "file": "красный финал.mp4",
+      "sha256": "883fdc534eb7ba8bbed1a83e6e041356156810360c97e383af3f7e33dd0aa6f0",
+      "duration": 8.0
+    },
+    {
+      "file": "желтый финал.mp4",
+      "sha256": "a0accc20893cd3f7672ce5749153009d97b31842a1b162af66e1d2364e7516a7",
+      "duration": 8.0
+    }
+  ]
+}

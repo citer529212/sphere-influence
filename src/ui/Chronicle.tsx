@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { FACTION_IDS, REALMS } from "../game/realms";
 import { DIFFICULTIES, DifficultyId } from "../game/information";
 import { FactionId } from "../game/types";
+import { CinematicOpening } from "./CinematicOpening";
 function useDialogFocus(onEscape?: () => void) {
   const escape = useRef(onEscape);
   escape.current = onEscape;
@@ -235,7 +236,11 @@ export function RealmSelection({
     </div>
   );
 }
-export function Opening({
+export function Opening({faction,sound,onSoundChange,onDone}:{faction:FactionId;sound:boolean;onSoundChange:(enabled:boolean)=>void;onDone:()=>void}):JSX.Element{
+  const [failed,setFailed]=useState(false);
+  return failed?<IllustratedOpening faction={faction} onDone={onDone}/>:<CinematicOpening faction={faction} sound={sound} onSoundChange={onSoundChange} onDone={onDone} onUnavailable={()=>setFailed(true)}/>;
+}
+function IllustratedOpening({
   faction,
   onDone,
 }: {

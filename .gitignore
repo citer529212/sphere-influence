@@ -9,3 +9,6 @@ vite.config.js
 vite.config.d.ts
 *-preview.jpg
 *-preview.png
+
+media-work/
+offline/
