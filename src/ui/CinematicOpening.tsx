@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FactionId } from "../game/types";
 import { REALMS } from "../game/realms";
 import { Modal } from "./Modal";
-import { INTRO_MOVIES, INTRO_POSTER, openingChapter } from "./cinematicAssets";
+import {
+  INTRO_MOVIES,
+  INTRO_POSTER,
+  VICTORY_MOVIES,
+  VICTORY_POSTERS,
+  openingChapter,
+} from "./cinematicAssets";
 
 export function CinematicOpening({
   faction,
@@ -10,13 +16,16 @@ export function CinematicOpening({
   onSoundChange,
   onDone,
   onUnavailable,
+  variant = "opening",
 }: {
+  variant?: "opening" | "victory";
   faction: FactionId;
   sound: boolean;
   onSoundChange: (enabled: boolean) => void;
   onDone: () => void;
   onUnavailable: () => void;
 }): JSX.Element {
+  const victory = variant === "victory";
   const video = useRef<HTMLVideoElement>(null),
     done = useRef(false),
     onDoneRef = useRef(onDone);
@@ -74,13 +83,17 @@ export function CinematicOpening({
     >
       <video
         ref={video}
-        src={INTRO_MOVIES[faction]}
-        poster={INTRO_POSTER}
+        src={victory ? VICTORY_MOVIES[faction] : INTRO_MOVIES[faction]}
+        poster={victory ? VICTORY_POSTERS[faction] : INTRO_POSTER}
         preload="metadata"
         playsInline
-        muted={!sound}
+        muted={victory || !sound}
         disablePictureInPicture
-        aria-label={`Вступление: встреча правителей, разрыв карты и ${REALMS[faction].name}`}
+        aria-label={
+          victory
+            ? `Победа: ${REALMS[faction].name}`
+            : `Вступление: встреча правителей, разрыв карты и ${REALMS[faction].name}`
+        }
         onTimeUpdate={(event) =>
           setChapter(openingChapter(event.currentTarget.currentTime))
         }
@@ -104,9 +117,20 @@ export function CinematicOpening({
           className="cinematic-play"
           onClick={play}
           data-autofocus
-          aria-label="Воспроизвести вступление"
+          aria-label={
+            victory
+              ? "Воспроизвести победный ролик"
+              : "Воспроизвести вступление"
+          }
         >
-          ▶ <span>{reduced ? "Смотреть вступление" : "Воспроизвести"}</span>
+          ▶{" "}
+          <span>
+            {reduced
+              ? victory
+                ? "Смотреть победу"
+                : "Смотреть вступление"
+              : "Воспроизвести"}
+          </span>
         </button>
       )}
       {waiting && !paused && (
@@ -115,12 +139,18 @@ export function CinematicOpening({
         </p>
       )}
       <div className="cinematic-bottom">
-        <p className="cinematic-chapters" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <i key={i} className={chapter === i ? "active" : ""} />
-          ))}
-        </p>
-        <h2 id="cinematic-title">{captions[chapter]}</h2>
+        {!victory && (
+          <p className="cinematic-chapters" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <i key={i} className={chapter === i ? "active" : ""} />
+            ))}
+          </p>
+        )}
+        <h2 id="cinematic-title">
+          {victory
+            ? `${REALMS[faction].ruler} · Мир слушает вас`
+            : captions[chapter]}
+        </h2>
         <div className="cinematic-controls">
           <button
             onClick={() => {
@@ -131,16 +161,20 @@ export function CinematicOpening({
           >
             {paused ? "▶ Продолжить" : "Ⅱ Пауза"}
           </button>
-          <button
-            aria-pressed={sound}
-            onClick={() => {
-              if (video.current) video.current.muted = sound;
-              onSoundChange(!sound);
-            }}
-          >
-            {sound ? "Звук: вкл" : "Звук: выкл"}
+          {!victory && (
+            <button
+              aria-pressed={sound}
+              onClick={() => {
+                if (video.current) video.current.muted = sound;
+                onSoundChange(!sound);
+              }}
+            >
+              {sound ? "Звук: вкл" : "Звук: выкл"}
+            </button>
+          )}
+          <button onClick={finish}>
+            {victory ? "К итогам партии →" : "К правилам →"}
           </button>
-          <button onClick={finish}>К правилам →</button>
         </div>
       </div>
     </Modal>

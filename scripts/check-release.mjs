@@ -9,7 +9,7 @@ assert.ok(bytes<80000,`Initial JavaScript must remain under 80 kB gzip; received
 assert.ok(![...initial].some(file=>file.includes('three-engine')),'3D engine must stay out of the initial script graph');
 for(const item of Object.values(manifest))assert.ok(existsSync('dist/'+item.file),`Missing asset ${item.file}`);
 const html=readFileSync('dist/index.html','utf8');assert.ok(!html.includes('src="/assets/'),'Assets must work under a Pages project path');
-for(const asset of ['app-icon.svg','manifest.webmanifest','sw.js','cinematics/intro-atlas.mp4','cinematics/intro-meridian.mp4','cinematics/intro-concordat.mp4','cinematics/intro-poster.jpg'])assert.ok(existsSync('dist/'+asset));
+for(const asset of ['app-icon.svg','manifest.webmanifest','sw.js','cinematics/intro-atlas.mp4','cinematics/intro-meridian.mp4','cinematics/intro-concordat.mp4','cinematics/intro-poster.jpg','cinematics/victory-atlas.mp4','cinematics/victory-meridian.mp4','cinematics/victory-concordat.mp4','cinematics/victory-atlas.jpg','cinematics/victory-meridian.jpg','cinematics/victory-concordat.jpg'])assert.ok(existsSync('dist/'+asset));
 const application=JSON.parse(readFileSync('dist/manifest.webmanifest','utf8'));assert.equal(application.orientation,'any');
 for(const file of readdirSync('dist/assets'))if(file.endsWith('.js'))assert.ok(!readFileSync('dist/assets/'+file,'utf8').includes('[WorldScene] Rendering profile'),'Development telemetry must be absent from release');
 console.log(`Release checks passed: ${(bytes/1000).toFixed(1)} kB initial JS gzip; lazy 3D engine; relative assets; public app metadata.`);

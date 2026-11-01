@@ -60,6 +60,8 @@ import {
 import { FactionId } from "./game/types";
 import { RealmSelection, Opening, Fireworks } from "./ui/Chronicle";
 import { GameAudio } from "./ui/audio";
+import { CinematicOpening } from "./ui/CinematicOpening";
+import { victoryMovieKey, shouldShowVictory } from "./game/victory";
 import { Modal } from "./ui/Modal";
 import { WorldEvent } from "./ui/WorldEvent";
 import { RulesGuide } from "./ui/RulesGuide";
@@ -139,6 +141,7 @@ export default function App(): JSX.Element {
     [resultOpen, setResultOpen] = useState(!!game.result);
   const [eventOpen, setEventOpen] = useState(false);
   const [learning, setLearning] = useState(false);
+  const [victorySeen,setVictorySeen]=useState<string|null>(null);
   const [saved, setSaved] = useState(true),
     [challenge, setChallenge] = useState(boot.challenge),
     [code, setCode] = useState(""),
@@ -184,6 +187,8 @@ export default function App(): JSX.Element {
     ).length,
     news = newsAt(game.turn),
     cityTopic = CITY_TOPICS[game.regions.indexOf(region)];
+  const victoryPending=shouldShowVictory(game,resultOpen,busy,shareOpen,victorySeen);
+  const finishVictory=useCallback(()=>setVictorySeen(victoryMovieKey(game)),[game.seed,game.player,game.difficulty,game.turn,game.result]);
   const pendingEvent = pendingWorldEvent(game),
     race = rivalObjective(game);
   const rivals = (["atlas", "meridian", "concordat"] as FactionId[])
@@ -387,6 +392,7 @@ export default function App(): JSX.Element {
   };
   const openMap = (seed: string) => {
     if (busy) return;
+    setVictorySeen(null);
     const opened = startSession(boot.storage, seed, undefined, game.difficulty);
     setGame(opened.session.game);
     setSelectedId(opened.session.selectedId);
@@ -405,6 +411,7 @@ export default function App(): JSX.Element {
     window.history.replaceState({}, "", url);
   };
   const restart = () => {
+    setVictorySeen(null);
     const fresh = createQuickGame(game.seed, player, game.difficulty);
     setGame(fresh);
     setSelectedId(fresh.regions.find((r) => r.politicalOwner === player)!.id);
@@ -415,6 +422,7 @@ export default function App(): JSX.Element {
     setCollapsed(false);
   };
   const chooseRuler = (f: FactionId, difficulty: DifficultyId) => {
+    setVictorySeen(null);
     const fresh = createQuickGame(game.seed, f, difficulty);
     setGame(fresh);
     setSelectedId(fresh.regions.find((r) => r.politicalOwner === f)!.id);
@@ -1036,7 +1044,7 @@ export default function App(): JSX.Element {
           <button onClick={closeShare}>К карте</button>
         </Modal>
       )}
-      {game.result && resultOpen && !busy && !shareOpen && (
+      {game.result && resultOpen && !busy && !shareOpen && !victoryPending && (
         <Modal
           titleId="quick-result"
           onClose={closeResult}
@@ -1077,12 +1085,14 @@ export default function App(): JSX.Element {
             </Suspense>
           </AssetBoundary>
           <div className="quick-result-buttons">
+            {game.result==='win'&&<button onClick={()=>setVictorySeen(null)}>Повторить победный ролик</button>}
             <button onClick={share}>Вызов другу</button>
             <button onClick={restart}>Новая попытка</button>
             <button onClick={closeResult}>К карте</button>
           </div>
         </Modal>
       )}
+      {victoryPending&&<CinematicOpening variant="victory" faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
       {learning && <AssetBoundary fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось открыть обучение</h2><p>Основная партия сохранена. Попробуйте открыть обучение ещё раз.</p><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
       {restartOpen && (
         <Modal titleId="restart-title" onClose={closeRestart}>

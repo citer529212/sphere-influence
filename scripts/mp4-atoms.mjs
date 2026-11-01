@@ -1,0 +1,4 @@
+import assert from 'node:assert/strict';
+export function boxes(data,start=0,end=data.length){const result=[];for(let offset=start;offset<end;){assert.ok(offset+8<=end,'Truncated MP4 atom');let size=data.readUInt32BE(offset),header=8;if(size===1){size=Number(data.readBigUInt64BE(offset+8));header=16;}if(size===0)size=end-offset;assert.ok(size>=header&&offset+size<=end,'MP4 atom bounds');result.push({type:data.toString('ascii',offset+4,offset+8),start:offset,body:offset+header,end:offset+size});offset+=size;}return result;}
+export function child(data,box,type){const result=boxes(data,box.body,box.end).find(b=>b.type===type);assert.ok(result,`Missing ${type}`);return result;}
+export function duration(data,box){return data[box.body]===1?Number(data.readBigUInt64BE(box.body+24))/data.readUInt32BE(box.body+20):data.readUInt32BE(box.body+16)/data.readUInt32BE(box.body+12);}

@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {build} from 'esbuild';
+import {boxes,child,duration} from './mp4-atoms.mjs';
 const bundle=await build({entryPoints:['src/ui/cinematicAssets.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {INTRO_MOVIES,INTRO_POSTER,openingChapter}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
-function boxes(data,start=0,end=data.length){const result=[];for(let offset=start;offset<end;){assert.ok(offset+8<=end,'Truncated MP4 atom');let size=data.readUInt32BE(offset),header=8;if(size===1){size=Number(data.readBigUInt64BE(offset+8));header=16;}if(size===0)size=end-offset;assert.ok(size>=header&&offset+size<=end,'MP4 atom bounds');result.push({type:data.toString('ascii',offset+4,offset+8),start:offset,body:offset+header,end:offset+size});offset+=size;}return result;}
-function child(data,box,type){const result=boxes(data,box.body,box.end).find(b=>b.type===type);assert.ok(result,`Missing ${type}`);return result;}
-function duration(data,box){return data[box.body]===1?Number(data.readBigUInt64BE(box.body+24))/data.readUInt32BE(box.body+20):data.readUInt32BE(box.body+16)/data.readUInt32BE(box.body+12);}
 const manifest=JSON.parse(readFileSync('public/cinematics/source-manifest.json','utf8'));assert.equal(manifest.sources.length,5);assert.equal(new Set(Object.values(INTRO_MOVIES)).size,3,'Rulers need distinct opening movies');
 for(const realm of ['atlas','meridian','concordat']){
  const url=INTRO_MOVIES[realm];assert.ok(url.endsWith(`intro-${realm}.mp4`));const data=readFileSync('public/'+url.slice(2)),top=boxes(data),moov=top.find(b=>b.type==='moov'),mdat=top.find(b=>b.type==='mdat');assert.ok(moov&&mdat&&moov.start<mdat.start,'Fast-start metadata must precede video data');

@@ -1,0 +1,20 @@
+[
+  {
+    "realm": "atlas",
+    "source": "синий_все.mp4",
+    "sha256": "c6380690c4f7019cefe8556a0b90253355495a52bce1855cb240747b7a12d1e9",
+    "audio": false
+  },
+  {
+    "realm": "meridian",
+    "source": "красный_все.mp4",
+    "sha256": "03f70aa5dad9ac4c5c3c31456c5febeafda15af16c6b31ddf9bdfc662980b9cf",
+    "audio": false
+  },
+  {
+    "realm": "concordat",
+    "source": "желтый_все.mp4",
+    "sha256": "30f2b2f950fad7ef72f279752b76e42da5f4c2b20ee8d9cda66e486db9fc9c5e",
+    "audio": false
+  }
+]
