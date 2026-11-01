@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const file='offline/sphere-influence-offline.html',html=readFileSync(file,'utf8');
+const embedded=[...html.matchAll(/data:audio\/mpeg;base64,([A-Za-z0-9+/=]+)/g)];
+const manifest=JSON.parse(readFileSync('public/music/manifest.json','utf8'));
+assert.equal(embedded.length,8);
+const hash=b=>createHash('sha256').update(b).digest('hex');
+const hashes=new Set(embedded.map(m=>hash(Buffer.from(m[1],'base64'))));assert.equal(hashes.size,8);
+for(const item of manifest)assert.ok(hashes.has(hash(readFileSync(`public/music/${item.key}.mp3`))),`Missing offline recording ${item.key}`);
+assert.ok(!html.includes('./music/'));assert.ok(!html.includes('./cinematics/'));assert.ok(!html.includes('./continent-'));
+assert.ok(!/<(?:script|link|audio|video)\b[^>]*(?:src|href)\s*=\s*["']https?:/i.test(html));
+assert.ok(html.includes('Kevin MacLeod'));assert.ok(html.includes('creativecommons.org/licenses/by/4.0/'));
+assert.ok(!html.includes('serviceWorker.register('));
+console.log(`Offline music integrity passed: eight exact processed MP3s embedded, credits and license included, no external playback paths; ${(Buffer.byteLength(html)/1024/1024).toFixed(2)} MiB. Real file:// browser playback still requires manual verification.`);

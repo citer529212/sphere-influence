@@ -17,8 +17,14 @@ export function CinematicOpening({
   onDone,
   onUnavailable,
   variant = "opening",
+  beforePlay,
+  onPlaybackChange,
+  onMusic,
 }: {
   variant?: "opening" | "victory";
+  beforePlay?:()=>Promise<void>;
+  onPlaybackChange?:(playing:boolean)=>void;
+  onMusic?:()=>void;
   faction: FactionId;
   sound: boolean;
   onSoundChange: (enabled: boolean) => void;
@@ -40,9 +46,17 @@ export function CinematicOpening({
     if (done.current) return;
     done.current = true;
     video.current?.pause();
+    onPlaybackChange?.(false);
     onDoneRef.current();
   }, []);
-  const play = () => {
+  const preparing=useRef(false),lifecycle=useRef(0);
+  const play = async () => {
+    if(preparing.current||done.current)return;
+    const epoch=lifecycle.current;
+    preparing.current=true;
+    if(beforePlay) await Promise.race([beforePlay().catch(()=>undefined),new Promise(resolve=>setTimeout(resolve,2000))]);
+    if(epoch!==lifecycle.current||done.current)return;
+    preparing.current=false;
     const element = video.current;
     if (!element) return;
     setWaiting(true);
@@ -54,19 +68,22 @@ export function CinematicOpening({
       })
       .catch(() => {
         setPaused(true);
+        onPlaybackChange?.(false);
         setWaiting(false);
       });
   };
   useEffect(() => {
     const element = video.current;
     if (!element) return;
-    if (!reduced) play();
+    lifecycle.current++;done.current=false;preparing.current=false;
+    if (!reduced) void play();
     const visibility = () => {
       if (document.hidden) element.pause();
     };
     document.addEventListener("visibilitychange", visibility);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
+      lifecycle.current++;done.current=true;preparing.current=false;
       element.pause();
     };
   }, [faction, reduced]);
@@ -98,10 +115,11 @@ export function CinematicOpening({
           setChapter(openingChapter(event.currentTarget.currentTime))
         }
         onPlaying={() => {
+          onPlaybackChange?.(true);
           setPaused(false);
           setWaiting(false);
         }}
-        onPause={() => setPaused(true)}
+        onPause={() => {setPaused(true);onPlaybackChange?.(false);}}
         onWaiting={() => setWaiting(true)}
         onEnded={finish}
         onError={() => {
@@ -172,6 +190,7 @@ export function CinematicOpening({
               {sound ? "Звук: вкл" : "Звук: выкл"}
             </button>
           )}
+          {onMusic && <button onClick={onMusic}>Музыка</button>}
           <button onClick={finish}>
             {victory ? "К итогам партии →" : "К правилам →"}
           </button>

@@ -24,7 +24,7 @@ function useDialogFocus(onEscape?: () => void) {
       }
       if (e.key !== "Tab") return;
       const buttons = Array.from(
-        ref.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+        ref.current?.querySelectorAll<HTMLButtonElement>("button,input,a[href]") ?? [],
       );
       if (!buttons.length) return;
       const first = buttons[0],
@@ -155,7 +155,11 @@ export function RealmSelection({
   required,
   initial,
   initialDifficulty,
+  onPreview,
+  onMusic,
 }: {
+  onPreview:(f:FactionId)=>void;
+  onMusic:()=>void;
   initialDifficulty: DifficultyId;
   initial: FactionId;
   onChoose: (f: FactionId, d: DifficultyId) => void;
@@ -212,7 +216,7 @@ export function RealmSelection({
               className={`realm-card ${chosen === f ? "chosen" : ""}`}
               style={{ "--realm-color": r.color } as React.CSSProperties}
               aria-pressed={chosen === f}
-              onClick={() => setChosen(f)}
+              onClick={() => {setChosen(f);onPreview(f);}}
             >
               <RulerPortrait faction={f} />
               <span className="map-eyebrow">{r.title}</span>
@@ -227,6 +231,7 @@ export function RealmSelection({
         })}
       </div>
       <div className="realm-start">
+        <button onClick={onMusic}>Музыка · настройки и авторство</button>
         <button onClick={() => onChoose(chosen, difficulty)}>
           Начать: {REALMS[chosen].name} →
         </button>
@@ -236,9 +241,9 @@ export function RealmSelection({
     </div>
   );
 }
-export function Opening({faction,sound,onSoundChange,onDone}:{faction:FactionId;sound:boolean;onSoundChange:(enabled:boolean)=>void;onDone:()=>void}):JSX.Element{
+export function Opening({faction,sound,onSoundChange,onDone,onMusic}:{faction:FactionId;sound:boolean;onSoundChange:(enabled:boolean)=>void;onDone:()=>void;onMusic:()=>void}):JSX.Element{
   const [failed,setFailed]=useState(false);
-  return failed?<IllustratedOpening faction={faction} onDone={onDone}/>:<CinematicOpening faction={faction} sound={sound} onSoundChange={onSoundChange} onDone={onDone} onUnavailable={()=>setFailed(true)}/>;
+  return failed?<IllustratedOpening faction={faction} onDone={onDone}/>:<CinematicOpening onMusic={onMusic} faction={faction} sound={sound} onSoundChange={onSoundChange} onDone={onDone} onUnavailable={()=>setFailed(true)}/>;
 }
 function IllustratedOpening({
   faction,

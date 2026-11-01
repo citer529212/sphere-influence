@@ -1,0 +1,75 @@
+Music for Sphere Influence — local game edits
+
+All works by Kevin MacLeod (incompetech.com).
+Licensed under Creative Commons: By Attribution 4.0 License.
+https://creativecommons.org/licenses/by/4.0/
+
+Music is distributed under CC BY 4.0. Terms for all other game materials are determined separately.
+
+Dragon and Toast — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100251
+ISRC: USUAN1100251
+Body excerpt (source seconds): [0.5, 180.5]
+Opening excerpt (source seconds): None
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start.
+Loop start in game edit: 0 seconds.
+
+Court of the Queen — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100728
+ISRC: USUAN1100728
+Body excerpt (source seconds): [1, 199]
+Opening excerpt (source seconds): None
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start.
+Loop start in game edit: 0 seconds.
+
+Ishikari Lore — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100192
+ISRC: USUAN1100192
+Body excerpt (source seconds): [1, 159]
+Opening excerpt (source seconds): None
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start.
+Loop start in game edit: 0 seconds.
+
+Digya — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1200080
+ISRC: USUAN1200080
+Body excerpt (source seconds): [0.2, 162.2]
+Opening excerpt (source seconds): None
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start.
+Loop start in game edit: 0 seconds.
+
+Procession of the King — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100745
+ISRC: USUAN1100745
+Body excerpt (source seconds): [48, 138]
+Opening excerpt (source seconds): [10, 18]
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB.
+Loop start in game edit: 8.0 seconds.
+
+Finding Movement — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100693
+ISRC: USUAN1100693
+Body excerpt (source seconds): [78, 114]
+Opening excerpt (source seconds): [32, 40]
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB.
+Loop start in game edit: 8.0 seconds.
+
+Allada — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500001
+ISRC: USUAN1500001
+Body excerpt (source seconds): [48, 138]
+Opening excerpt (source seconds): [0, 8]
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB.
+Loop start in game edit: 8.0 seconds.
+
+Sad Trio — Kevin MacLeod (incompetech.com)
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100089
+ISRC: USUAN1100089
+Body excerpt (source seconds): [5, 125]
+Opening excerpt (source seconds): None
+Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start.
+Loop start in game edit: 0 seconds.
+
+The originals supplied by the user were not modified. The Allada source is tagged Allada - Full Mix; Sad Trio contains an old CC BY 2.0 comment, while the author current track page supplies the CC BY 4.0 attribution.
+Precise input hashes, requested edit ranges, actual durations and decoded boundary metrics: manifest.json.
+No licensing links are contacted for playback.

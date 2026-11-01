@@ -59,6 +59,8 @@ import { cityIndex,regionTopic } from "./game/worlds";
 import { FactionId } from "./game/types";
 import { RealmSelection, Opening, Fireworks } from "./ui/Chronicle";
 import { GameAudio } from "./ui/audio";
+import { MusicPlayer, MusicStatus, loadMusicPreferences, saveMusicPreferences, musicForScreen } from "./ui/music";
+import { MusicPanel } from "./ui/MusicPanel";
 import { CinematicOpening } from "./ui/CinematicOpening";
 import { victoryMovieKey, shouldShowVictory } from "./game/victory";
 import { Modal } from "./ui/Modal";
@@ -127,6 +129,15 @@ export default function App(): JSX.Element {
     [selectedId, setSelectedId] = useState(boot.session.selectedId);
   const [preferences, setPreferences] = useState<Preferences>(boot.preferences),
     [audio] = useState(() => new GameAudio());
+  const [musicPreferences, setMusicPreferences] = useState(()=>loadMusicPreferences(boot.storage));
+  const [musicStatus,setMusicStatus]=useState<MusicStatus>('idle');
+  const [music]=useState(()=>new MusicPlayer({status:setMusicStatus}));
+  const [musicOpen,setMusicOpen]=useState(false);
+  const [musicPreview,setMusicPreview]=useState<FactionId|null>(null);
+  const [victoryMusicStarted,setVictoryMusicStarted]=useState<string|null>(null);
+  const [victoryPlaying,setVictoryPlaying]=useState(false);
+  const musicDisposal=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const closeMusic=useCallback(()=>setMusicOpen(false),[]);
   const [requiresRuler, setRequiresRuler] = useState(!boot.restored),
     [selection, setSelection] = useState(!boot.restored),
     [opening, setOpening] = useState(false),
@@ -198,6 +209,7 @@ export default function App(): JSX.Element {
     .sort((a, b) => b.held - a.held || b.cities - a.cities)[0];
   const overlayOpen =
     learning ||
+    musicOpen ||
     selection ||
     opening ||
     menu ||
@@ -213,6 +225,7 @@ export default function App(): JSX.Element {
     game.turn,
     learning,
     busy,
+    musicOpen,
     selection,
     opening,
     rules,
@@ -246,6 +259,7 @@ export default function App(): JSX.Element {
   const blocked =
     busy ||
     learning ||
+    musicOpen ||
     selection ||
     opening ||
     menu ||
@@ -273,6 +287,25 @@ export default function App(): JSX.Element {
     audio.setEnabled(preferences.sound);
   }, [boot.storage, preferences, audio]);
   useEffect(() => () => audio.dispose(), [audio]);
+  useEffect(()=>{
+    if(musicDisposal.current!==null)clearTimeout(musicDisposal.current);
+    const gesture=()=>{void music.unlock();};
+    const key=(event:KeyboardEvent)=>{if(!event.ctrlKey&&!event.metaKey&&!event.altKey)gesture();};
+    const visible=()=>music.setHidden(document.hidden);
+    document.addEventListener('pointerdown',gesture,{capture:true});
+    document.addEventListener('keydown',key,{capture:true});
+    document.addEventListener('visibilitychange',visible);visible();
+    return ()=>{document.removeEventListener('pointerdown',gesture,true);document.removeEventListener('keydown',key,true);document.removeEventListener('visibilitychange',visible);musicDisposal.current=setTimeout(()=>music.dispose(),0);};
+  },[music]);
+  useEffect(()=>{music.setPreferences(musicPreferences);saveMusicPreferences(boot.storage,musicPreferences);},[music,musicPreferences,boot.storage]);
+  const musicVictoryKey=`${game.seed}:${game.player}:${game.difficulty}:${game.turn}`;
+  const waitingVictory= victoryPending && victoryMusicStarted!==musicVictoryKey;
+  const desiredMusic=musicForScreen(selection,musicPreview,player,game.result,busy,requiresRuler);
+  useEffect(()=>{music.setDucked(opening&&preferences.sound);music.setTheme(waitingVictory?null:desiredMusic);music.setHeld(victoryPending&&!waitingVictory&&!victoryPlaying);},[music,desiredMusic,opening,preferences.sound,waitingVictory,victoryPending,victoryPlaying]);
+  const prepareVictoryMusic=useCallback(async()=>{
+    await Promise.all([music.prepare(`victory-${player}`),new Promise<void>(resolve=>setTimeout(resolve,700))]);
+  },[music,player]);
+  const victoryPlayback=useCallback((playing:boolean)=>{setVictoryPlaying(playing);if(playing)setVictoryMusicStarted(musicVictoryKey);},[musicVictoryKey]);
   useEffect(() => {
     if (!worldEvent || busy) return;
     const timer = setTimeout(() => setWorldEvent(null), 3300);
@@ -392,6 +425,8 @@ export default function App(): JSX.Element {
   const openMap = (seed: string) => {
     if (busy) return;
     setVictorySeen(null);
+    setVictoryMusicStarted(null);
+    setVictoryPlaying(false);
     const opened = startSession(boot.storage, seed, undefined, game.difficulty);
     setGame(opened.session.game);
     setSelectedId(opened.session.selectedId);
@@ -400,6 +435,7 @@ export default function App(): JSX.Element {
     setShareOpen(false);
     setMenu(false);
     setResultOpen(!!opened.session.game.result);
+    setMusicPreview(null);
     setSelection(!opened.restored);
     setRequiresRuler(!opened.restored);
     setChallenge({ seed, goal: null, unsupported: false });
@@ -411,6 +447,8 @@ export default function App(): JSX.Element {
   };
   const restart = () => {
     setVictorySeen(null);
+    setVictoryMusicStarted(null);
+    setVictoryPlaying(false);
     const fresh = createQuickGame(game.seed, player, game.difficulty);
     setGame(fresh);
     setSelectedId(fresh.regions.find((r) => r.politicalOwner === player)!.id);
@@ -422,6 +460,8 @@ export default function App(): JSX.Element {
   };
   const chooseRuler = (f: FactionId, difficulty: DifficultyId) => {
     setVictorySeen(null);
+    setVictoryMusicStarted(null);
+    setVictoryPlaying(false);
     const fresh = createQuickGame(game.seed, f, difficulty);
     setGame(fresh);
     setSelectedId(fresh.regions.find((r) => r.politicalOwner === f)!.id);
@@ -890,8 +930,9 @@ export default function App(): JSX.Element {
           <div className="settings-buttons">
             <button onClick={openLearning}>Подробное обучение · 22 этапа</button>
             <button onClick={() => {setMenu(false);setOpening(true);}}>Смотреть вступление</button>
+            <button onClick={()=>setMusicOpen(true)}>Музыка · громкость и авторство</button>
             <button onClick={toggleSound}>
-              {preferences.sound ? "Звук: вкл" : "Звук: выкл"}
+              {preferences.sound ? "Эффекты и видео: вкл" : "Эффекты и видео: выкл"}
             </button>
             <button
               onClick={() => {
@@ -903,6 +944,7 @@ export default function App(): JSX.Element {
             </button>
             <button
               onClick={() => {
+                setMusicPreview(null);
                 setSelection(true);
                 setMenu(false);
               }}
@@ -1092,7 +1134,7 @@ export default function App(): JSX.Element {
           </div>
         </Modal>
       )}
-      {victoryPending&&<CinematicOpening variant="victory" faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
+      {victoryPending&&<CinematicOpening variant="victory" beforePlay={prepareVictoryMusic} onPlaybackChange={victoryPlayback} onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
       {learning && <AssetBoundary fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось открыть обучение</h2><p>Основная партия сохранена. Попробуйте открыть обучение ещё раз.</p><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
       {restartOpen && (
         <Modal titleId="restart-title" onClose={closeRestart}>
@@ -1104,6 +1146,8 @@ export default function App(): JSX.Element {
       )}
       {selection && (
         <RealmSelection
+          onPreview={setMusicPreview}
+          onMusic={()=>setMusicOpen(true)}
           initial={challenge.player ?? player}
           initialDifficulty={game.difficulty}
           required={requiresRuler}
@@ -1111,7 +1155,8 @@ export default function App(): JSX.Element {
           onCancel={() => setSelection(false)}
         />
       )}
-      {opening && <Opening faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
+      {opening && <Opening onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
+      {musicOpen && <MusicPanel value={musicPreferences} onChange={setMusicPreferences} status={musicStatus} onRetry={()=>{setMusicPreferences(p=>({...p,enabled:true}));void music.unlock();}} onClose={closeMusic}/>}
     </div>
   );
 }

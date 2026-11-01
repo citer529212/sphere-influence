@@ -1,0 +1,203 @@
+[
+  {
+    "key": "menu",
+    "title": "Dragon and Toast",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100251",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100251",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Dragon%20and%20Toast.mp3",
+    "originalTitle": "Dragon and Toast",
+    "originalSha256": "4aa6c0135e801363df3782fad81f7ad1fe8cde05515eddcf0a852bf92e174ae9",
+    "originalDuration": 352.848,
+    "bodySourceSeconds": [
+      0.5,
+      180.5
+    ],
+    "openingSourceSeconds": null,
+    "crossfadeSeconds": 2,
+    "loopStart": 0,
+    "duration": 178.0,
+    "bytes": 2849403,
+    "decodedSeamPeak": 0.011503081768751144,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start."
+  },
+  {
+    "key": "atlas",
+    "title": "Court of the Queen",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100728",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100728",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Court%20of%20the%20Queen.mp3",
+    "originalTitle": "Court of the Queen",
+    "originalSha256": "ff1d075bcd1c79205f529aea0b6280335ee11e7f8628aac2068492708a59cf4c",
+    "originalDuration": 200.28,
+    "bodySourceSeconds": [
+      1,
+      199
+    ],
+    "openingSourceSeconds": null,
+    "crossfadeSeconds": 2,
+    "loopStart": 0,
+    "duration": 195.98,
+    "bytes": 3136961,
+    "decodedSeamPeak": 0.002429049927741289,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start."
+  },
+  {
+    "key": "meridian",
+    "title": "Ishikari Lore",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100192",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100192",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Ishikari%20Lore.mp3",
+    "originalTitle": "Ishikari Lore",
+    "originalSha256": "2ae7e32d371f839c507f44397473942a9fbaffcea4c1ac1f94331fdf70a2b581",
+    "originalDuration": 164.0751,
+    "bodySourceSeconds": [
+      1,
+      159
+    ],
+    "openingSourceSeconds": null,
+    "crossfadeSeconds": 2,
+    "loopStart": 0,
+    "duration": 156.0,
+    "bytes": 2497061,
+    "decodedSeamPeak": 0.0028711333870887756,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start."
+  },
+  {
+    "key": "concordat",
+    "title": "Digya",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1200080",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1200080",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Digya.mp3",
+    "originalTitle": "Digya",
+    "originalSha256": "9052db0b89c752a2b25a8e8bfdcb680d31dfad98805c5d7782799a193008fee7",
+    "originalDuration": 166.6351,
+    "bodySourceSeconds": [
+      0.2,
+      162.2
+    ],
+    "openingSourceSeconds": null,
+    "crossfadeSeconds": 2,
+    "loopStart": 0,
+    "duration": 160.0,
+    "bytes": 2561000,
+    "decodedSeamPeak": 0.018060915172100067,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start."
+  },
+  {
+    "key": "victory-atlas",
+    "title": "Procession of the King",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100745",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100745",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Procession%20of%20the%20King.mp3",
+    "originalTitle": "Procession of the King",
+    "originalSha256": "7c5c0f58609bcb494ba5842af495558eb9231ae1f14e7a666fd108ac94f0b07c",
+    "originalDuration": 184.058775,
+    "bodySourceSeconds": [
+      48,
+      138
+    ],
+    "openingSourceSeconds": [
+      10,
+      18
+    ],
+    "crossfadeSeconds": 2,
+    "loopStart": 8.0,
+    "duration": 96.0,
+    "bytes": 1537017,
+    "decodedSeamPeak": 0.005071749910712242,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB."
+  },
+  {
+    "key": "victory-meridian",
+    "title": "Finding Movement",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100693",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100693",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Finding%20Movement.mp3",
+    "originalTitle": "Finding Movement",
+    "originalSha256": "b8621ea5d156839f3e1b349b6bfd904fdd35c33bf36867cba0e2bdf0307f4019",
+    "originalDuration": 116.064,
+    "bodySourceSeconds": [
+      78,
+      114
+    ],
+    "openingSourceSeconds": [
+      32,
+      40
+    ],
+    "crossfadeSeconds": 2,
+    "loopStart": 8.0,
+    "duration": 41.96399092970522,
+    "bytes": 672672,
+    "decodedSeamPeak": 0.002357588615268469,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB."
+  },
+  {
+    "key": "victory-concordat",
+    "title": "Allada",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1500001",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500001",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Allada.mp3",
+    "originalTitle": "Allada - Full Mix",
+    "originalSha256": "5afef97467ef2738016d1b604a3797165c8c076f90b86c379cae0b05c8a9ac1a",
+    "originalDuration": 223.425313,
+    "bodySourceSeconds": [
+      48,
+      138
+    ],
+    "openingSourceSeconds": [
+      0,
+      8
+    ],
+    "crossfadeSeconds": 2,
+    "loopStart": 8.0,
+    "duration": 96.0,
+    "bytes": 1537001,
+    "decodedSeamPeak": 0.027227720245718956,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start. Opening excerpt retained once; final 2 seconds crossfaded into loop preroll; continuation attenuated 4 dB."
+  },
+  {
+    "key": "loss",
+    "title": "Sad Trio",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100089",
+    "source": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100089",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "original": "Sad%20Trio.mp3",
+    "originalTitle": "Sad Trio",
+    "originalSha256": "b1a8322fb3aff1d27b320b21bdbec7ede1d6b00bb0007ddff58133e6fd237391",
+    "originalDuration": 251.5592,
+    "bodySourceSeconds": [
+      5,
+      125
+    ],
+    "openingSourceSeconds": null,
+    "crossfadeSeconds": 2,
+    "loopStart": 0,
+    "duration": 118.0,
+    "bytes": 1889343,
+    "decodedSeamPeak": 0.0010982216335833073,
+    "edits": "Selected source excerpts; loudnorm target -20 LUFS / -2 dBTP / LRA 11; 44.1 kHz stereo MP3 128 kbps; removed cover art and original tags; 2-second linear wrap crossfade with rotated loop start."
+  }
+]

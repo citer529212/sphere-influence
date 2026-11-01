@@ -13,3 +13,5 @@ for(const asset of ['app-icon.svg','manifest.webmanifest','sw.js','cinematics/in
 const application=JSON.parse(readFileSync('dist/manifest.webmanifest','utf8'));assert.equal(application.orientation,'any');
 for(const file of readdirSync('dist/assets'))if(file.endsWith('.js'))assert.ok(!readFileSync('dist/assets/'+file,'utf8').includes('[WorldScene] Rendering profile'),'Development telemetry must be absent from release');
 console.log(`Release checks passed: ${(bytes/1000).toFixed(1)} kB initial JS gzip; lazy 3D engine; relative assets; public app metadata.`);
+
+const music=JSON.parse(readFileSync('public/music/manifest.json','utf8'));assert.equal(music.length,8);for(const item of music){const file='dist/music/'+item.key+'.mp3';assert.ok(existsSync(file),'Missing production music '+item.key);assert.equal(readFileSync(file).length,item.bytes);}assert.ok(existsSync('dist/music/CREDITS.txt'));
