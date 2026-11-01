@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CITY_SITES, climateAt, isNeutralLand, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
+import { ALL_CITY_SITES, CITY_SITES, climateAt, isNeutralLand, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
 import { Region } from '../game/types';
 
 export const FACTION_COLORS = { atlas:'#4baff5',meridian:'#ed6259',concordat:'#efd05d',neutral:'#939c98',contested:'#939c98' };
@@ -73,7 +73,7 @@ export function cityModel(region:Region,index:number):THREE.Group {
   }
   // A second ring of grounded blocks gives capitals a broader urban footprint.
   if(capital){
-    const site=CITY_SITES[index],level=heightAt(site.x,site.y);
+    const site=ALL_CITY_SITES[index],level=heightAt(site.x,site.y);
     for(let i=0;i<24;i++){
       const a=i*Math.PI/12,r=2.05+(i%2)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
       if(coastDistance(site.x+x,site.y+z)<.4||channel(site.x+x,site.y+z).distance<.5)continue;
@@ -108,13 +108,13 @@ export function batchStatic(groups:THREE.Group[]):THREE.Group {
     if(geometry){const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;result.add(mesh);}
   });return result;
 }
-export function vegetation(roads:THREE.Vector3[][],economy:boolean):THREE.Group {
+export function vegetation(roads:THREE.Vector3[][],economy:boolean,sites=CITY_SITES):THREE.Group {
   const group=new THREE.Group(),random=randomGenerator(723);
   const treePositions:{x:number;z:number;y:number;size:number;angle:number}[]=[];
   const roadSamples=roads.flatMap(path=>path.filter((_,i)=>i%3===0));
   for(let i=0;i<6500&&treePositions.length<(economy?460:1050);i++){
     const x=(random()-.5)*64,z=(random()-.5)*36,d=coastDistance(x,z);
-    if(climateAt(x,z)==='arid'||isNeutralLand(x,z)||d<.8||CITY_SITES.some(p=>Math.hypot(p.x-x,p.y-z)<2.5))continue;
+    if(climateAt(x,z)==='arid'||isNeutralLand(x,z)||d<.8||sites.some(p=>Math.hypot(p.x-x,p.y-z)<2.5))continue;
     if(.5+Math.sin(x*.8)*Math.cos(z*.7)*.5<.35)continue;
     if(channel(x,z).distance<.8||roadSamples.some(p=>(p.x-x)**2+(p.z-z)**2<.15))continue;
     const y=heightAt(x,z);if(y>3.3||y<.35)continue;
@@ -134,13 +134,13 @@ export function vegetation(roads:THREE.Vector3[][],economy:boolean):THREE.Group 
   const stones:THREE.Matrix4[]=[];
   for(let i=0;i<250;i++){
     const x=(random()-.5)*65,z=(random()-.5)*35,d=coastDistance(x,z);
-    if(d<-.6||d>1.5||CITY_SITES.some(p=>Math.hypot(p.x-x,p.y-z)<2.8))continue;
+    if(d<-.6||d>1.5||sites.some(p=>Math.hypot(p.x-x,p.y-z)<2.8))continue;
     const s=.18+random()*.45;rotation.setFromAxisAngle(yAxis,random()*6);matrix.compose(new THREE.Vector3(x,Math.max(heightAt(x,z),-.1),z),rotation,new THREE.Vector3(s,s*.65,s*.8));stones.push(matrix.clone());
   }
   const rocks=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),material('#92978b'),stones.length);stones.forEach((m,i)=>rocks.setMatrixAt(i,m));rocks.castShadow=true;rocks.receiveShadow=true;group.add(rocks);
   // Cultivated strips sit on the continuous surface around settlements.
   const plots:THREE.BufferGeometry[]=[];
-  CITY_SITES.forEach((site,index)=>{
+  sites.forEach((site,index)=>{
     for(let row=0;row<5;row++){
       const x=site.x+2.3+row*.2,z=site.y+.2;
       if(coastDistance(x,z)<2||channel(x,z).distance<1)continue;

@@ -1,15 +1,16 @@
-import { QuickState, controlled, QUICK_TOTAL } from '../game/quickGame';
+import { QuickState, controlled } from '../game/quickGame';
 import { MAP_LANDS } from '../world/mapContours';
 import { DIFFICULTIES } from '../game/information';
 import { REALMS } from '../game/realms';
-import { CITY_SITES } from '../world/terrain';
+import { ALL_CITY_SITES } from '../world/terrain';
+import { cityIndex } from '../game/worlds';
 import { FACTION_COLORS } from '../world/scenery';
 
 function fallbackMap(ctx:CanvasRenderingContext2D,game:QuickState):void {
   ctx.fillStyle='#21434e';ctx.fillRect(64,220,1072,410);
   const project=(x:number,z:number)=>({x:600+x*13,y:425+z*9});
   for(const land of MAP_LANDS){ctx.beginPath();land.points.forEach(([x,z],i)=>{const v=project(x,z);if(i)ctx.lineTo(v.x,v.y);else ctx.moveTo(v.x,v.y);});ctx.closePath();ctx.fillStyle=land.faction==='neutral'?'#939c98':'#7f9368';ctx.fill();ctx.strokeStyle=FACTION_COLORS[land.faction];ctx.lineWidth=2;ctx.stroke();}
-  CITY_SITES.forEach((p,i)=>{const v=project(p.x,p.y);ctx.beginPath();ctx.arc(v.x,v.y,8,0,Math.PI*2);ctx.fillStyle=FACTION_COLORS[game.regions[i].infoController];ctx.fill();ctx.strokeStyle='#f0dfad';ctx.lineWidth=2;ctx.stroke();});
+  game.regions.forEach((region,i)=>{const p=ALL_CITY_SITES[cityIndex(region)];const v=project(p.x,p.y);ctx.beginPath();ctx.arc(v.x,v.y,8,0,Math.PI*2);ctx.fillStyle=FACTION_COLORS[game.regions[i].infoController];ctx.fill();ctx.strokeStyle='#f0dfad';ctx.lineWidth=2;ctx.stroke();});
 }
 function fittedText(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,width:number,size:number,family='Georgia'):void {
   while(size>12){ctx.font=`${size}px ${family}`;if(ctx.measureText(text).width<=width)break;size--;}
@@ -27,7 +28,7 @@ export async function makeResultCard(game:QuickState,capture:(()=>string)|null):
   let map:string|null=null;try{map=capture?.()??null;}catch{/* An illustrated map still produces a complete card. */}
   if(map){try{const image=new Image();image.src=map;await image.decode();ctx.drawImage(image,64,220,1072,410);}catch{fallbackMap(ctx,game);}}else fallbackMap(ctx,game);
   ctx.strokeStyle='#9caa8066';ctx.lineWidth=1;ctx.strokeRect(64,220,1072,410);
-  const stats=[{value:`${controlled(game)} / ${QUICK_TOTAL}`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
+  const stats=[{value:`${controlled(game)} / ${game.regions.length}`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
   stats.forEach((stat,i)=>{const x=64+i*367;ctx.fillStyle='#f1e2b8';ctx.font='52px Georgia';ctx.fillText(stat.value,x,704);ctx.fillStyle='#9cb9ad';ctx.font='14px Trebuchet MS';ctx.fillText(stat.label,x,734);});
   ctx.strokeStyle='#a89b6544';ctx.beginPath();ctx.moveTo(64,766);ctx.lineTo(1136,766);ctx.stroke();
   ctx.fillStyle='#ecdba8';ctx.font='27px Georgia';ctx.fillText('Сможешь удержать информационное лидерство быстрее?',64,810);

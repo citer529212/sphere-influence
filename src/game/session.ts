@@ -5,7 +5,6 @@ import {
   controlled,
   QUICK_LIMIT,
   RULESET_VERSION,
-  QUICK_TOTAL,
   regionController,
   objective,
   decisionLimit,
@@ -20,8 +19,8 @@ export interface StorageLike {
 }
 export type Session = { game: QuickState; selectedId: string; savedAt: string };
 export type Preferences = { sound: boolean; tutorialStep: number };
-const PREFIX = "spheres.session.v6:";
-const LAST = "spheres.last.v6";
+const PREFIX = "spheres.session.v7:";
+const LAST = "spheres.last.v7";
 const PREFS = "spheres.preferences.v1";
 const validSeed = (seed: unknown): seed is string =>
   typeof seed === "string" && /^[a-zA-Z0-9-]{1,40}$/.test(seed);
@@ -112,7 +111,7 @@ export function loadSession(
       return null;
     if (
       !Array.isArray(saved.regions) ||
-      saved.regions.length !== QUICK_TOTAL ||
+      saved.regions.length !== DIFFICULTIES[difficulty].cities ||
       !Array.isArray(saved.log) ||
       saved.log.length > 8 ||
       !saved.log.every((line) => typeof line === "string" && line.length <= 500)

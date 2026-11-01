@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FactionId } from '../game/types';
-import { MEDIA_LINKS } from '../game/information';
+import { cityIndex,regionRole,worldLinks } from '../game/worlds';
 import { ActionEvent } from '../game/quickGame';
 import { Region } from '../game/types';
-import { CITY_SITES, TERRITORIES, RIVERS, channel, coastDistance, heightAt, nearestCity, ribbon, roadPaths, terrainGeometry } from './terrain';
+import { ALL_CITY_SITES, ALL_TERRITORIES, RIVERS, channel, coastDistance, heightAt, nearestCity, ribbon, roadPaths, terrainGeometry } from './terrain';
 import { batchStatic, cityModel, FACTION_COLORS, material, sharedAssetGeometries, vegetation } from './scenery';
 import { MAP_LANDS } from './mapContours';
 import { createWater } from './water';
@@ -22,6 +22,7 @@ type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(
 type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;support:HTMLSpanElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
 
 export function createWorld(container:HTMLDivElement,initial:WorldState,callbacks:Callbacks):WorldApi {
+  const CITY_SITES=initial.regions.map(r=>ALL_CITY_SITES[cityIndex(r)]);
   const economy=window.matchMedia('(max-width: 600px)').matches;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const renderer=new THREE.WebGLRenderer({antialias:!economy,powerPreference:'high-performance'});
@@ -36,20 +37,20 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const sky=new THREE.HemisphereLight('#d9eaf2','#48533c',1.45);scene.add(sky);
   const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
   Object.assign(sun.shadow.camera,{left:-39,right:39,top:30,bottom:-30,near:1,far:100});sun.shadow.normalBias=.11;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun);
-  const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry);
+  const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry,CITY_SITES);
   const water=createWater();scene.add(water);
   for(const faction of ['atlas','meridian','concordat','neutral'] as const){
     const geos=MAP_LANDS.filter(p=>p.faction===faction).map(land=>{const points=land.points.map(([x,z])=>new THREE.Vector3(x,Math.max(.08,heightAt(x,z)+.12),z));points.push(points[0].clone());return ribbon(points,.055);});
     const geo=mergeGeometries(geos);geos.forEach(g=>g.dispose());if(geo)scene.add(new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:FACTION_COLORS[faction],transparent:true,opacity:.48,side:THREE.DoubleSide,depthWrite:false})));
   }
   const broadcast=new THREE.Group();
-  const connections=MEDIA_LINKS.map(([a,b])=>{
+  const connections=worldLinks(initial).map(([a,b])=>{
     const from=CITY_SITES[a],to=CITY_SITES[b],start=new THREE.Vector3(from.x,heightAt(from.x,from.y)+.6,from.y),end=new THREE.Vector3(to.x,heightAt(to.x,to.y)+.6,to.y),mid=start.clone().lerp(end,.5);mid.y=Math.max(start.y,end.y)+1.5+from.distanceTo(to)*.04;
     const curve=new THREE.CatmullRomCurve3([start,mid,end]),line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(32)),new THREE.LineBasicMaterial({color:'#9cb2b2',transparent:true,opacity:.4,depthWrite:false}));broadcast.add(line);return {a,b,line,curve,active:false};
   });
   const signals=new THREE.InstancedMesh(new THREE.SphereGeometry(economy?.11:.14,economy?5:8,5),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.9,depthWrite:false}),connections.length);signals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);signals.frustumCulled=false;broadcast.add(signals);scene.add(broadcast);
   const signalMatrix=new THREE.Matrix4(),signalPosition=new THREE.Vector3(),signalScale=new THREE.Vector3(),signalRotation=new THREE.Quaternion(),signalColor=new THREE.Color();
-  const roads=roadPaths();
+  const roads=roadPaths(CITY_SITES,initial.regions.map(r=>r.politicalOwner));
   const roadGeos=roads.map(path=>ribbon(path,.2));
   const roadMesh=new THREE.Mesh(mergeGeometries(roadGeos)!,material('#c0af87'));roadGeos.forEach(g=>g.dispose());roadMesh.receiveShadow=true;scene.add(roadMesh);
   const riverGeos=RIVERS.map(path=>ribbon(path.map(p=>new THREE.Vector3(p.x,p.bed+.07,p.z)),.52));
@@ -69,13 +70,13 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       staticGroups.push(group);
     });
   });
-  scene.add(vegetation(roads,economy));
+  scene.add(vegetation(roads,economy,CITY_SITES));
   const labelLayer=document.createElement('div');labelLayer.className='world-labels';container.appendChild(labelLayer);
   const visuals:CityVisual[]=[];
   initial.regions.slice(0,CITY_SITES.length).forEach((region,index)=>{
     const center=CITY_SITES[index],ground=heightAt(center.x,center.y);
-    const model=cityModel(region,index);model.position.set(center.x,ground,center.y);staticGroups.push(model);
-    const points:THREE.Vector3[]=[];const poly=TERRITORIES[index];
+    const model=cityModel(region,cityIndex(region));model.position.set(center.x,ground,center.y);staticGroups.push(model);
+    const points:THREE.Vector3[]=[];const poly=ALL_TERRITORIES[cityIndex(region)];
     poly.forEach((p,i)=>{
       const next=poly[(i+1)%poly.length],steps=Math.max(1,Math.ceil(p.distanceTo(next)/.35));
       for(let j=0;j<steps;j++){const v=p.clone().lerp(next,j/steps);v.lerp(center,.004);const y=heightAt(v.x,v.y);points.push(new THREE.Vector3(v.x,Math.max(y+.13,.035),v.y));}
@@ -93,10 +94,10 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const support=document.createElement('span');support.className='city-opinion';label.appendChild(support);const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
     visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,support,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
-  CITY_SITES.forEach((_,i)=>{if(i%4===0||i%4===3||i>=12){const port=harborModel(i);if(port)staticGroups.push(port);}});
+  initial.regions.forEach(region=>{const i=cityIndex(region);if([0,4,8].includes(i)||region.politicalOwner==='neutral'||regionRole(region)==='trade'){const port=harborModel(i);if(port)staticGroups.push(port);}});
   const urban=batchStatic(staticGroups);scene.add(urban);
-  const living=createLivingMap(economy,reduced);scene.add(living.group);
-  const newsrooms=createNewsrooms(reduced);scene.add(newsrooms.group);
+  const living=createLivingMap(economy,reduced,CITY_SITES);scene.add(living.group);
+  const newsrooms=createNewsrooms(reduced,CITY_SITES);scene.add(newsrooms.group);
   const daylight=createDaylight(scene,sun,sky,water.material,reduced);
   // Originals are CPU-only inputs for batching, so release their allocations as well.
   const sourceGeometries=new Set<THREE.BufferGeometry>(sharedAssetGeometries());staticGroups.forEach(g=>g.traverse(o=>{if(o instanceof THREE.Mesh)sourceGeometries.add(o.geometry);}));sourceGeometries.forEach(g=>g.dispose());
@@ -182,7 +183,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const hitTest=(event:PointerEvent)=>{
     const rect=canvas.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
     const hit=raycaster.intersectObject(terrain)[0];if(!hit||hit.point.y<.1||coastDistance(hit.point.x,hit.point.z)<0)return null;
-    return state.regions[nearestCity(hit.point.x,hit.point.z)]?.id??null;
+    return state.regions[nearestCity(hit.point.x,hit.point.z,CITY_SITES)]?.id??null;
   };
   const active=new Set<number>();let startX=0,startY=0,multiTouch=false,lastHover:string|null=null;
   const down=(event:PointerEvent)=>{active.add(event.pointerId);if(active.size>1)multiTouch=true;else{startX=event.clientX;startY=event.clientY;multiTouch=false;}};

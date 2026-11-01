@@ -77,14 +77,14 @@ export function seaRoutes(): THREE.Vector3[][] {
     .filter((path) => path.length > 1);
 }
 
-export function createLivingMap(economy: boolean, reduced: boolean) {
+export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SITES) {
   const group = new THREE.Group(),
     matrix = new THREE.Matrix4(),
     rotation = new THREE.Quaternion(),
     position = new THREE.Vector3(),
     scale = new THREE.Vector3(),
     axis = new THREE.Vector3(0, 1, 0);
-  const smokeCount = economy ? 16 : 32;
+  const smokeCount = economy ? sites.length : sites.length*2;
   const smoke = new THREE.InstancedMesh(
     new THREE.IcosahedronGeometry(1, 0),
     new THREE.MeshBasicMaterial({
@@ -121,16 +121,16 @@ export function createLivingMap(economy: boolean, reduced: boolean) {
   sails.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   group.add(hulls, sails);
   const tangent = new THREE.Vector3(),
-    grounds = CITY_SITES.map((city) => heightAt(city.x, city.y)),
+    grounds = sites.map((city) => heightAt(city.x, city.y)),
     lengths = routes.map((route) => route.getLength());
   const update = (time: number) => {
     const t = reduced ? 0 : time;
     for (let i = 0; i < smokeCount; i++) {
-      const city = CITY_SITES[i % CITY_SITES.length],
+      const city = sites[i % sites.length],
         phase = (t * 0.17 + i * 0.371) % 1;
       position.set(
         city.x + 0.45 + phase * 0.65,
-        grounds[i % CITY_SITES.length] + 0.85 + phase * 1.5,
+        grounds[i % sites.length] + 0.85 + phase * 1.5,
         city.y - 0.25 + phase * 0.2,
       );
       matrix.compose(

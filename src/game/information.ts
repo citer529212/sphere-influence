@@ -3,8 +3,9 @@ export type TopicId = "development" | "freedoms" | "stability";
 export const DIFFICULTIES = {
   discovery: {
     name: "Знакомство",
-    goal: 8,
-    limit: 18,
+    cities: 10,
+    goal: 6,
+    limit: 16,
     hold: 1,
     trust: 35,
     aiActions: 1,
@@ -13,6 +14,7 @@ export const DIFFICULTIES = {
   },
   standard: {
     name: "Борьба повесток",
+    cities: 16,
     goal: 10,
     limit: 24,
     hold: 2,
@@ -24,8 +26,9 @@ export const DIFFICULTIES = {
   },
   expert: {
     name: "Информационный шторм",
-    goal: 11,
-    limit: 30,
+    cities: 22,
+    goal: 14,
+    limit: 36,
     hold: 2,
     trust: 50,
     aiActions: 2,
@@ -68,6 +71,7 @@ export const CITY_TOPICS: TopicId[] = [
   "development",
   "freedoms",
   "stability",
+  "stability", "development", "stability", "development", "stability", "freedoms",
 ];
 export const CITY_ROLES = [
   "civic",
@@ -86,8 +90,10 @@ export const CITY_ROLES = [
   "trade",
   "university",
   "civic",
+  "relay", "trade", "relay", "university", "relay", "independent",
 ] as const;
 export const CITY_SPECIALTIES = {
+  relay:{name:"Межматериковый ретранслятор",description:"При лидерстве работающая редакция расширяет охват до трёх связей вместо двух.",income:1,support:2,trust:0},
   civic: {
     name: "Городская аудитория",
     description: "Редакция: +1 дохода и +2 поддержки за ход.",

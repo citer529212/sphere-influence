@@ -2,16 +2,14 @@ import { REALMS, FACTION_IDS, climateEffect } from "./realms";
 import { createInitialState } from "./data";
 import { FactionId, Region } from "./types";
 import {
-  CITY_TOPICS,
-  CITY_ROLES,
   CITY_SPECIALTIES,
   DIFFICULTIES,
   DifficultyId,
-  MEDIA_LINKS,
   newsAt,
   TopicId,
   TOPICS,
 } from "./information";
+import { cityIndex,cityOwner,regionTopic,regionRole,worldFor,worldLinks,WORLD_IDS,WORLD_NAMES } from "./worlds";
 import { WORLD_EVENTS, EventOption } from "./events";
 export type QuickAction = "media" | "attract" | "protect";
 export type CampaignMemory = { topic: TopicId; repeats: number };
@@ -35,11 +33,10 @@ export type QuickState = {
   log: string[];
   result: "win" | "loss" | null;
 };
-export const RULESET_VERSION = "6",
-  QUICK_TOTAL = 16,
+export const RULESET_VERSION = "7",
   NEUTRAL_SUPPORT = 55;
 // Upper bounds for validation; actual objectives come from the selected difficulty.
-export const QUICK_LIMIT = 30;
+export const QUICK_LIMIT = 36;
 export const QUICK_ACTIONS = {
   media: {
     name: "Медиацентр",
@@ -83,37 +80,13 @@ export function createQuickGame(
   difficulty: DifficultyId = "standard",
 ): QuickState {
   const all = createInitialState().regions,
-    ids = [
-      "mist-isles",
-      "northern-reef",
-      "polar-coast",
-      "deep-bay",
-      "northern-hills",
-      "heart-meridian",
-      "volcanic-plateau",
-      "crimson-canyon",
-      "iris-delta",
-      "emerald-delta",
-      "southern-archipelago",
-      "central-delta",
-      "north-isthmus",
-      "stone-strait",
-      "fog-isthmus",
-      "south-strait",
-    ];
-  const regions = ids.map((id, i) => {
-    const region = structuredClone(all.find((r) => r.id === id)!);
-    const owner = i < 12 ? FACTION_IDS[Math.floor(i / 4)] : "neutral";
-    region.politicalOwner = owner;
-    region.infoController = owner === "neutral" ? "contested" : owner;
-    region.influence = { atlas: 18, meridian: 18, concordat: 18 };
-    if (owner === "neutral")
-      region.influence = { atlas: 8, meridian: 8, concordat: 8 };
-    else region.influence[owner] = 62 + (hash(seed + id) % 10);
-    region.mediaNodes = { atlas: 0, meridian: 0, concordat: 0 };
-    region.factCheckShield = { atlas: 0, meridian: 0, concordat: 0 };
-    region.fatigue = 0;
-    return region;
+    ids = worldFor(difficulty).indices;
+  const regions = ids.map((index) => {
+    const id=WORLD_IDS[index],source=all.find(r=>r.id===id)??all.find(r=>r.id===WORLD_IDS[[0,4,8][Math.floor((index-16)/2)]]);
+    const region=structuredClone(source!);region.id=id;if(WORLD_NAMES[id])region.name=WORLD_NAMES[id];
+    const owner=cityOwner(index);region.politicalOwner=owner;region.infoController=owner==='neutral'?'contested':owner;
+    region.influence={atlas:18,meridian:18,concordat:18};if(owner==='neutral')region.influence={atlas:8,meridian:8,concordat:8};else region.influence[owner]=62+(hash(seed+id)%10);
+    region.mediaNodes={atlas:0,meridian:0,concordat:0};region.factCheckShield={atlas:0,meridian:0,concordat:0};region.fatigue=0;return region;
   });
   const mode = DIFFICULTIES[difficulty];
   return {
@@ -149,9 +122,9 @@ export function decisionLimit(state: QuickState): number {
     ? 3
     : 2;
 }
-export function citySpecialty(state: QuickState, region: Region) {
+export function citySpecialty(_state: QuickState, region: Region) {
   return CITY_SPECIALTIES[
-    CITY_ROLES[state.regions.findIndex((r) => r.id === region.id)]
+    regionRole(region)
   ];
 }
 export function trustRecovery(
@@ -205,6 +178,7 @@ export function mediaReach(
   state: QuickState,
   actor = state.player,
 ): Set<number> {
+  const links = worldLinks(state);
   const reached = new Set<number>(),
     owned = state.regions.flatMap((r, i) =>
       r.infoController === actor ? [i] : [],
@@ -214,20 +188,23 @@ export function mediaReach(
   });
   for (const i of owned) {
     reached.add(i);
-    for (const [a, b] of MEDIA_LINKS) {
+    for (const [a, b] of links) {
       if (a === i) reached.add(b);
       if (b === i) reached.add(a);
     }
   }
   for (const i of owned.filter((i) => state.regions[i].mediaNodes[actor] > 0)) {
-    const first = MEDIA_LINKS.flatMap(([a, b]) =>
+    const first = links.flatMap(([a, b]) =>
       a === i ? [b] : b === i ? [a] : [],
     );
     for (const j of first)
-      for (const [a, b] of MEDIA_LINKS) {
+      for (const [a, b] of links) {
         if (a === j) reached.add(b);
         if (b === j) reached.add(a);
       }
+  }
+  for(const i of owned.filter(i=>regionRole(state.regions[i])==='relay'&&state.regions[i].mediaNodes[actor]>0)){
+    let frontier=new Set([i]);for(let hop=0;hop<3;hop++){const next=new Set<number>();for(const [a,b] of links){if(frontier.has(a))next.add(b);if(frontier.has(b))next.add(a);}for(const j of next)reached.add(j);frontier=next;}
   }
   return reached;
 }
@@ -252,7 +229,7 @@ export function networkBonus(
       r.infoController === actor &&
       r.mediaNodes[actor] > 0 &&
       (i === j ||
-        MEDIA_LINKS.some(
+        worldLinks(state).some(
           ([a, b]) => (a === i && b === j) || (b === i && a === j),
         )),
   )
@@ -265,8 +242,7 @@ export function campaignGain(
   actor = state.player,
   topic = state.topic,
 ): number {
-  const i = state.regions.findIndex((r) => r.id === region.id),
-    trust = actor === state.player ? state.trust : state.rivalTrust[actor],
+  const trust = actor === state.player ? state.trust : state.rivalTrust[actor],
     news = newsAt(state.turn);
   return Math.max(
     7,
@@ -274,9 +250,9 @@ export function campaignGain(
       Math.floor(trust / 10) -
       Math.floor(region.fatigue / 8) +
       REALMS[actor].campaign +
-      (topic === CITY_TOPICS[i] ? 5 : -3) +
+      (topic === regionTopic(region) ? 5 : -3) +
       networkBonus(state, region, actor) +
-      climateEffect(state.turn, i) +
+      climateEffect(state.turn, cityIndex(region)) +
       (news.topic === topic ? news.bonus : 0) -
       repeatPenalty(state, region, topic, actor),
   );
@@ -509,7 +485,7 @@ function rivalDecision(
     return {
       region: defense,
       action: "protect",
-      topic: CITY_TOPICS[state.regions.indexOf(defense)],
+      topic: regionTopic(defense),
     };
   const center = owned
     .filter((r) => !r.mediaNodes[actor])
@@ -775,7 +751,7 @@ export function rivalObjective(state: QuickState) {
   return state.difficulty === "discovery"
     ? null
     : {
-        goal: state.difficulty === "standard" ? 7 : 8,
+        goal: state.difficulty === "standard" ? 7 : 11,
         trust: objective(state).trust,
         hold: 2,
       };

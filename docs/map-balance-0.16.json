@@ -1,0 +1,108 @@
+{
+  "version": "0.16.0",
+  "rules": "7",
+  "seeds": "map-balance-0 through map-balance-49",
+  "policy": "scripts/simulate-information.mjs default play options",
+  "caveat": "One deterministic automated strategy, not human win rates. Turn means include wins and losses.",
+  "rows": [
+    {
+      "difficulty": "discovery",
+      "player": "atlas",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 5,
+        "max": 7,
+        "mean": 6.22
+      }
+    },
+    {
+      "difficulty": "discovery",
+      "player": "meridian",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 5,
+        "max": 9,
+        "mean": 6.36
+      }
+    },
+    {
+      "difficulty": "discovery",
+      "player": "concordat",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 5,
+        "max": 7,
+        "mean": 5.76
+      }
+    },
+    {
+      "difficulty": "standard",
+      "player": "atlas",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 10,
+        "max": 16,
+        "mean": 11.52
+      }
+    },
+    {
+      "difficulty": "standard",
+      "player": "meridian",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 10,
+        "max": 16,
+        "mean": 10.98
+      }
+    },
+    {
+      "difficulty": "standard",
+      "player": "concordat",
+      "games": 50,
+      "wins": 50,
+      "turns": {
+        "min": 10,
+        "max": 14,
+        "mean": 10.98
+      }
+    },
+    {
+      "difficulty": "expert",
+      "player": "atlas",
+      "games": 50,
+      "wins": 40,
+      "turns": {
+        "min": 12,
+        "max": 36,
+        "mean": 18.8
+      }
+    },
+    {
+      "difficulty": "expert",
+      "player": "meridian",
+      "games": 50,
+      "wins": 39,
+      "turns": {
+        "min": 12,
+        "max": 36,
+        "mean": 19.28
+      }
+    },
+    {
+      "difficulty": "expert",
+      "player": "concordat",
+      "games": 50,
+      "wins": 48,
+      "turns": {
+        "min": 13,
+        "max": 36,
+        "mean": 15.44
+      }
+    }
+  ]
+}

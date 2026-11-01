@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  CITY_SITES,
+  ALL_CITY_SITES as CITY_SITES,
   coastDistance,
   heightAt,
   ribbon,

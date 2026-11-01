@@ -21,12 +21,16 @@ export function coastDistance(x:number,z:number):number {
 }
 export function isNeutralLand(x:number,z:number):boolean {return polygons.some(p=>p.faction==='neutral'&&x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ&&polygonDistance(x,z,p)>0);}
 const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i])),...polygons.filter(p=>p.faction==='neutral')];
-export const CITY_SITES=chosen.map(poly=>{
+const area=(poly:typeof polygons[number])=>Math.abs(poly.points.reduce((sum,a,i)=>{const b=poly.points[(i+1)%poly.points.length];return sum+a.x*b.y-b.x*a.y;},0));
+const extraChosen=(['atlas','meridian','concordat'] as const).flatMap(f=>polygons.filter(p=>p.faction===f&&!chosen.includes(p)).sort((a,b)=>area(b)-area(a)).slice(0,2));
+export const ALL_TERRITORIES=[...chosen,...extraChosen].map(p=>p.points);
+export const ALL_CITY_SITES=[...chosen,...extraChosen].map(poly=>{
   let best=new THREE.Vector2(),depth=-Infinity;
   for(let x=poly.minX;x<poly.maxX;x+=.3)for(let z=poly.minZ;z<poly.maxZ;z+=.3){const d=polygonDistance(x,z,poly);if(d>depth){depth=d;best.set(x,z);}}
   return best;
 });
-export const TERRITORIES=chosen.map(p=>p.points);
+export const CITY_SITES=ALL_CITY_SITES.slice(0,16);
+export const TERRITORIES=ALL_TERRITORIES.slice(0,16);
 export const COAST=polygons.flatMap(p=>p.points);
 export function climateAt(x:number,z:number):'polar'|'temperate'|'arid'|'tropical' {
   if(z< -10)return 'polar';
@@ -78,21 +82,21 @@ function rawHeight(x: number,z: number): number {
   h += ridgeHeight(x,z);
   return -.3 + smooth(d,-.25,1.15)*h;
 }
-const cityLevels = CITY_SITES.map(p => Math.max(.9,rawHeight(p.x,p.y)));
+const cityLevels = ALL_CITY_SITES.map(p => Math.max(.9,rawHeight(p.x,p.y)));
 export function heightAt(x: number, z: number): number {
   let h = rawHeight(x,z);
   if (coastDistance(x,z) < -.7) return h;
   const water = channel(x,z);
   if (water.distance < 2.1) h = THREE.MathUtils.lerp(Math.min(h,water.bed-.13),h,smooth(water.distance,.24,2.1));
-  CITY_SITES.forEach((p,i) => {
+  ALL_CITY_SITES.forEach((p,i) => {
     const d = Math.hypot(x-p.x,z-p.y);
     if(d<2.8) h=THREE.MathUtils.lerp(cityLevels[i],h,smooth(d,1.65,2.8));
   });
   return h;
 }
-export function nearestCity(x: number,z: number): number {
+export function nearestCity(x: number,z: number,sites=CITY_SITES): number {
   let index=0, distance=Infinity;
-  CITY_SITES.forEach((p,i)=>{const d=(p.x-x)**2+(p.y-z)**2;if(d<distance){distance=d;index=i;}});
+  sites.forEach((p,i)=>{const d=(p.x-x)**2+(p.y-z)**2;if(d<distance){distance=d;index=i;}});
   return index;
 }
 export function terrainGeometry(): THREE.BufferGeometry {
@@ -129,12 +133,13 @@ export function ribbon(points: THREE.Vector3[],width:number): THREE.BufferGeomet
   });
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.setIndex(indices);geo.computeVertexNormals();return geo;
 }
-export function roadPaths(): THREE.Vector3[][] {
+export function roadPaths(sites=CITY_SITES,owners=sites.map((_,i)=>i<12?String(Math.floor(i/4)):'neutral')): THREE.Vector3[][] {
   const paths:THREE.Vector3[][]=[];
-  CITY_SITES.slice(0,12).forEach((site,i)=>{
-    const start=Math.floor(i/4)*4; const adjacent=i%4<3?[i+1]:[start];
+  sites.forEach((site,i)=>{
+    if(owners[i]==='neutral')return;
+    const group=sites.map((_,j)=>j).filter(j=>owners[j]===owners[i]);const adjacent=[group[(group.indexOf(i)+1)%group.length]];
     adjacent.forEach(j=>{
-      const other=CITY_SITES[j],mid=site.clone().lerp(other,.5);mid.x+=Math.sin(i+j)*.7;mid.y+=Math.cos(i+j)*.8;
+      const other=sites[j],mid=site.clone().lerp(other,.5);mid.x+=Math.sin(i+j)*.7;mid.y+=Math.cos(i+j)*.8;
       const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(site.x,0,site.y),new THREE.Vector3(mid.x,0,mid.y),new THREE.Vector3(other.x,0,other.y)]);
       const samples=curve.getPoints(50);let segment:THREE.Vector3[]=[];for(const p of samples){if(coastDistance(p.x,p.z)<0){if(segment.length>1)paths.push(segment);segment=[];continue;}const water=channel(p.x,p.z);p.y=Math.max(heightAt(p.x,p.z)+.045,water.distance<.6?water.bed+.24:-99);segment.push(p);}if(segment.length>1)paths.push(segment);
     });

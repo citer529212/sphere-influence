@@ -75,7 +75,7 @@ assert.equal(frames.at(-1).state.turn, 5);
 function lead(difficulty = "standard") {
   const state = g.createQuickGame("rival-wins", "atlas", difficulty);
   state.rivalBudget = { atlas: 0, meridian: 0, concordat: 0 };
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < (difficulty==="expert"?11:8); i++) {
     const r = state.regions[i];
     r.influence = { atlas: 0, meridian: 100, concordat: 0 };
     r.infoController = "meridian";
@@ -119,7 +119,7 @@ const easy = g.quickEndTurn(g.quickEndTurn(lead("discovery")));
 assert.equal(easy.result, null);
 assert.equal(easy.winner, null, "Training remains forgiving");
 const simultaneous = lead("expert");
-for (let i = 8; i < 16; i++) {
+for (let i = 11; i < 22; i++) {
   simultaneous.regions[i].influence = { atlas: 0, meridian: 0, concordat: 100 };
   simultaneous.regions[i].infoController = "concordat";
 }

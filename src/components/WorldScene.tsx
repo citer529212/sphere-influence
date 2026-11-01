@@ -19,6 +19,7 @@ export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptur
   const [interaction,setInteraction]=useState(true);
   const [error,setError]=useState(false),[ready,setReady]=useState(false);
   const [hovered,setHovered]=useState<string|null>(null),[announcement,setAnnouncement]=useState('');
+  const worldKey=regions.map(r=>r.id).join('|');
   const latest=useRef({regions,selectedRegionId,onSelectRegion,layer,player,network,lighting,reachableIds});latest.current={regions,selectedRegionId,onSelectRegion,layer,player,network,lighting,reachableIds};
   useEffect(()=>{
     const container=host.current;if(!container)return;
@@ -28,7 +29,7 @@ export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptur
       });api.current.setInteraction(!compact||interaction);onCaptureReady?.(api.current.capture);setReady(true);
     }catch(error){console.error('Could not create the island scene',error);setError(true);}
     return()=>{onCaptureReady?.(null);api.current?.dispose();api.current=null;};
-  },[]);
+  },[worldKey]);
   useEffect(()=>{api.current?.update({regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds});},[regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds]);
   useEffect(()=>{const query=window.matchMedia('(max-width:700px)'),coarse=window.matchMedia('(pointer:coarse)');const changed=()=>setCompact(query.matches||coarse.matches);query.addEventListener('change',changed);coarse.addEventListener('change',changed);return()=>{query.removeEventListener('change',changed);coarse.removeEventListener('change',changed);};},[]);
   useEffect(()=>{api.current?.setInteraction(!compact||interaction);},[compact,interaction]);

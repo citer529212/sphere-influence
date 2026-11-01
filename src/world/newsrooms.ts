@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { Region } from "../game/types";
 import { FACTION_IDS } from "../game/realms";
-import { CITY_SITES, heightAt, coastDistance, channel } from "./terrain";
+import { CITY_SITES as DEFAULT_SITES, heightAt, coastDistance, channel } from "./terrain";
 import { FACTION_COLORS } from "./scenery";
-export function createNewsrooms(reduced: boolean) {
+export function createNewsrooms(reduced: boolean,CITY_SITES=DEFAULT_SITES) {
   const group = new THREE.Group(),
     count = CITY_SITES.length * 3;
   const buildings = new THREE.InstancedMesh(

@@ -113,7 +113,7 @@ for (const player of ["atlas", "meridian", "concordat"]) {
     "win",
     `A tested strategy can win expert as ${player}`,
   );
-  assert.ok(hard.turn <= 30);
+  assert.ok(hard.turn <= g.objective(g.createQuickGame("limit",player,"expert")).limit);
   console.log(
     `${player}: discovery ${easy.turn}, standard ${normal.turn}, expert witness ${hard.turn} turns`,
   );

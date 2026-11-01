@@ -18,7 +18,6 @@ import {
   dailySeed,
   planQuickEndTurn,
   QUICK_ACTIONS,
-  QUICK_TOTAL,
   quickAction,
   RULESET_VERSION,
   supportNeeded,
@@ -50,13 +49,13 @@ import {
 } from "./game/session";
 import { REALMS, climateDescription, SEASONS, season } from "./game/realms";
 import {
-  CITY_TOPICS,
   DIFFICULTIES,
   DifficultyId,
   newsAt,
   TopicId,
   TOPICS,
 } from "./game/information";
+import { cityIndex,regionTopic } from "./game/worlds";
 import { FactionId } from "./game/types";
 import { RealmSelection, Opening, Fireworks } from "./ui/Chronicle";
 import { GameAudio } from "./ui/audio";
@@ -186,7 +185,7 @@ export default function App(): JSX.Element {
       (r) => r.infoController === player && r.mediaNodes[player] > 0,
     ).length,
     news = newsAt(game.turn),
-    cityTopic = CITY_TOPICS[game.regions.indexOf(region)];
+    cityTopic = regionTopic(region);
   const victoryPending=shouldShowVictory(game,resultOpen,busy,shareOpen,victorySeen);
   const finishVictory=useCallback(()=>setVictorySeen(victoryMovieKey(game)),[game.seed,game.player,game.difficulty,game.turn,game.result]);
   const pendingEvent = pendingWorldEvent(game),
@@ -469,6 +468,7 @@ export default function App(): JSX.Element {
             fallback={<MapLoading regions={game.regions} onSelect={select} />}
           >
             <WorldScene
+              key={game.difficulty}
               regions={game.regions}
               selectedRegionId={selectedId}
               onSelectRegion={select}
@@ -646,12 +646,12 @@ export default function App(): JSX.Element {
             </summary>
             <p>{citySpecialty(game, region).description}</p>
             <p>
-              ☀ {climateDescription(game.turn, game.regions.indexOf(region))} ·
+              ☀ {climateDescription(game.turn, cityIndex(region))} ·
               усталость {region.fatigue}%
             </p>
           </details>
           <p className="climate-note">
-            ☀ {climateDescription(game.turn, game.regions.indexOf(region))}
+            ☀ {climateDescription(game.turn, cityIndex(region))}
           </p>
           <p
             className={`media-reach ${mediaReach(game).has(game.regions.indexOf(region)) ? "reachable" : "unreachable"}`}
@@ -1073,7 +1073,7 @@ export default function App(): JSX.Element {
             </p>
           )}
           <p>
-            {realm.ruler} · {cities} из {QUICK_TOTAL} городов · Ход {game.turn}{" "}
+            {realm.ruler} · {cities} из {game.regions.length} городов · Ход {game.turn}{" "}
             · Доверие {game.trust}%
           </p>
           {compareChallenge(game, challenge.goal) && (

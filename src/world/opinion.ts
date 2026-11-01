@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Region, FactionId } from "../game/types";
 import { regionController, supportNeeded } from "../game/quickGame";
 import { FACTION_IDS } from "../game/realms";
-import { nearestCity } from "./terrain";
+import { nearestCity,CITY_SITES } from "./terrain";
 import { FACTION_COLORS } from "./scenery";
 
 export function opinion(region: Region, player: FactionId) {
@@ -28,13 +28,13 @@ export function opinion(region: Region, player: FactionId) {
 }
 
 // Recolor existing land vertices, preserving relief, climate and water. No extra overlay draw call.
-export function createOpinionTint(geometry: THREE.BufferGeometry) {
+export function createOpinionTint(geometry: THREE.BufferGeometry,sites=CITY_SITES) {
   const attribute = geometry.getAttribute("color"),
     base = new Float32Array(attribute.array),
     positions = geometry.getAttribute("position");
   const cities = Int16Array.from({ length: positions.count }, (_, i) =>
     positions.getY(i) > 0.16
-      ? nearestCity(positions.getX(i), positions.getZ(i))
+      ? nearestCity(positions.getX(i), positions.getZ(i),sites)
       : -1,
   );
   const update = (regions: Region[], enabled: boolean) => {

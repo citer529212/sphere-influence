@@ -190,7 +190,7 @@ export function RealmSelection({
           >
             <strong>{DIFFICULTIES[id].name}</strong>
             <span>
-              {DIFFICULTIES[id].goal} городов · {DIFFICULTIES[id].limit}{" "}
+              {DIFFICULTIES[id].cities} городов на карте · цель {DIFFICULTIES[id].goal} · {DIFFICULTIES[id].limit}{" "}
               {id === "standard" ? "хода" : "ходов"}
             </span>
             <small>{DIFFICULTIES[id].description}</small>
