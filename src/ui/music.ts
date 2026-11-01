@@ -73,7 +73,8 @@ export class MusicPlayer {
   private loading = false;
   private buffers = new Map<MusicKey, AudioBuffer>();
   private pending = new Map<MusicKey, Promise<AudioBuffer>>();
-  private requests = new Set<AbortController>();
+  private requests = new Map<MusicKey,AbortController>();
+  private decoding:Promise<void>=Promise.resolve();
   constructor(private deps: Dependencies = {}) {}
   private report(status: MusicStatus) {
     if (!this.disposed) this.deps.status?.(status);
@@ -170,12 +171,12 @@ export class MusicPlayer {
       return cached;
     }
     const existing = this.pending.get(key);
-    if (existing) return existing;
+    if (existing&&this.requests.has(key)&&!this.requests.get(key)?.signal.aborted) return existing;
     const context = this.ensureContext(),
       controller = new AbortController();
-    this.requests.add(controller);
+    this.requests.set(key,controller);
     const timer = setTimeout(() => controller.abort(), 15000);
-    const request = (async () => {
+    const request:Promise<AudioBuffer> = (async () => {
       try {
         const buffer = await (this.deps.load
           ? this.deps.load(key, context, controller.signal)
@@ -184,18 +185,21 @@ export class MusicPlayer {
                 signal: controller.signal,
               });
               if (!response.ok) throw Error("music unavailable");
-              return context.decodeAudioData(await response.arrayBuffer());
+              const bytes=await response.arrayBuffer();
+              const previous=this.decoding;let release!:()=>void;
+              this.decoding=new Promise<void>(resolve=>{release=resolve;});
+              await previous;
+              try{if(controller.signal.aborted||this.disposed)throw Error('cancelled');return await context.decodeAudioData(bytes);}finally{release();}
             })());
-        if (this.disposed) throw Error("disposed");
+        if (this.disposed||controller.signal.aborted) throw Error("cancelled");
         this.buffers.set(key, buffer);
         // Bound decoded PCM retention; active sources retain their own buffers.
-        while (this.buffers.size > 2)
+        while (this.buffers.size > 1)
           this.buffers.delete(this.buffers.keys().next().value!);
         return buffer;
       } finally {
         clearTimeout(timer);
-        this.requests.delete(controller);
-        this.pending.delete(key);
+        if(this.requests.get(key)===controller){this.requests.delete(key);this.pending.delete(key);}
       }
     })();
     this.pending.set(key, request);
@@ -203,6 +207,7 @@ export class MusicPlayer {
   }
   setTheme(key: MusicKey | null) {
     if (this.disposed || this.desired === key) return;
+    if(key)for(const [other,request] of this.requests)if(other!==key)request.abort();
     this.desired = key;
     this.generation++;
     this.loading = false;
@@ -286,7 +291,7 @@ export class MusicPlayer {
   dispose() {
     this.disposed = true;
     this.generation++;
-    for (const request of this.requests) request.abort();
+    for (const request of this.requests.values()) request.abort();
     this.requests.clear();
     for (const voice of this.voices) {
       try {

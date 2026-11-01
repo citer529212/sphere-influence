@@ -60,7 +60,7 @@ import { FactionId } from "./game/types";
 import { RealmSelection, Opening, Fireworks } from "./ui/Chronicle";
 import { GameAudio } from "./ui/audio";
 import { MusicPlayer, MusicStatus, loadMusicPreferences, saveMusicPreferences, musicForScreen } from "./ui/music";
-import { MusicPanel } from "./ui/MusicPanel";
+import { compactDevice,deviceHints } from "./device";
 import { CinematicOpening } from "./ui/CinematicOpening";
 import { victoryMovieKey, shouldShowVictory } from "./game/victory";
 import { Modal } from "./ui/Modal";
@@ -77,6 +77,7 @@ const WorldScene = lazy(() =>
 const ResultCard = lazy(() =>
   import("./ui/ResultCard").then((m) => ({ default: m.ResultCard })),
 );
+const MusicPanel=lazy(()=>import("./ui/MusicPanel").then(m=>({default:m.MusicPanel})));
 const Tutorial = lazy(() => import("./ui/Tutorial"));
 const ACTION_ICONS = { media: "◈", attract: "⚑", protect: "◇" };
 const tutorial = [
@@ -138,10 +139,11 @@ export default function App(): JSX.Element {
   const [victoryPlaying,setVictoryPlaying]=useState(false);
   const musicDisposal=useRef<ReturnType<typeof setTimeout>|null>(null);
   const closeMusic=useCallback(()=>setMusicOpen(false),[]);
+  const [compact,setCompact]=useState(()=>compactDevice(deviceHints()));
   const [requiresRuler, setRequiresRuler] = useState(!boot.restored),
     [selection, setSelection] = useState(!boot.restored),
     [opening, setOpening] = useState(false),
-    [collapsed, setCollapsed] = useState(false),
+    [collapsed, setCollapsed] = useState(()=>compactDevice(deviceHints())),
     [introduction, setIntroduction] = useState(false);
   const [menu, setMenu] = useState(false),
     [rules, setRules] = useState(false),
@@ -149,6 +151,7 @@ export default function App(): JSX.Element {
     [shareOpen, setShareOpen] = useState(false),
     [restartOpen, setRestartOpen] = useState(false),
     [resultOpen, setResultOpen] = useState(!!game.result);
+  const [mapStarted,setMapStarted]=useState(boot.restored);
   const [eventOpen, setEventOpen] = useState(false);
   const [learning, setLearning] = useState(false);
   const [victorySeen,setVictorySeen]=useState<string|null>(null);
@@ -278,6 +281,7 @@ export default function App(): JSX.Element {
     : region.infoController === "contested"
       ? "Соперничество повесток"
       : FACTIONS[region.infoController].name;
+  useEffect(()=>{if(!selection&&!opening)setMapStarted(true);},[selection,opening]);
   useEffect(() => {
     if (!selection && !opening && !introduction && !busy)
       setSaved(saveSession(boot.storage, game, selectedId));
@@ -287,6 +291,7 @@ export default function App(): JSX.Element {
     audio.setEnabled(preferences.sound);
   }, [boot.storage, preferences, audio]);
   useEffect(() => () => audio.dispose(), [audio]);
+  useEffect(()=>{const width=window.matchMedia('(max-width:700px)'),pointer=window.matchMedia('(pointer:coarse)');const update=()=>setCompact(compactDevice(deviceHints()));width.addEventListener('change',update);pointer.addEventListener('change',update);return()=>{width.removeEventListener('change',update);pointer.removeEventListener('change',update);};},[]);
   useEffect(()=>{
     if(musicDisposal.current!==null)clearTimeout(musicDisposal.current);
     const gesture=()=>{void music.unlock();};
@@ -456,7 +461,7 @@ export default function App(): JSX.Element {
     setWorldEvent(null);
     setResultOpen(false);
     setRestartOpen(false);
-    setCollapsed(false);
+    setCollapsed(compact);
   };
   const chooseRuler = (f: FactionId, difficulty: DifficultyId) => {
     setVictorySeen(null);
@@ -471,7 +476,7 @@ export default function App(): JSX.Element {
     setResultOpen(false);
     setReport([]);
     setWorldEvent(null);
-    setCollapsed(false);
+    setCollapsed(compact);
   };
   const share = async () => {
     const text = challengeText(window.location.href, game);
@@ -497,9 +502,9 @@ export default function App(): JSX.Element {
       : `${REALMS[worldEvent.actor].name} · ${worldEvent.kind === "opponent" ? "кампания" : worldEvent.kind === "blocked" ? "кампания сдержана" : worldEvent.kind === "event" ? "Ответ на событие" : QUICK_ACTIONS[worldEvent.kind].name}`
     : "";
   return (
-    <div className="game-shell">
+    <div className={`game-shell ${compact?"is-compact":""}`}>
       <main className="map-stage" aria-label="Стратегическая карта">
-        <AssetBoundary
+        {mapStarted?<AssetBoundary
           fallback={
             <MapLoading regions={game.regions} onSelect={select} failed />
           }
@@ -520,10 +525,11 @@ export default function App(): JSX.Element {
               reachableIds={[...mediaReach(game)].map(
                 (i) => game.regions[i].id,
               )}
+              active={!overlayOpen&&!victoryPending}
               fullscreen
             />
           </Suspense>
-        </AssetBoundary>
+        </AssetBoundary>:<MapLoading regions={game.regions} onSelect={select}/>}
       </main>
       <header className="game-hud">
         <div className="hud-brand">
@@ -1156,7 +1162,7 @@ export default function App(): JSX.Element {
         />
       )}
       {opening && <Opening onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
-      {musicOpen && <MusicPanel value={musicPreferences} onChange={setMusicPreferences} status={musicStatus} onRetry={()=>{setMusicPreferences(p=>({...p,enabled:true}));void music.unlock();}} onClose={closeMusic}/>}
+      {musicOpen && <AssetBoundary fallback={<Modal className="music-panel" titleId="music-error" onClose={closeMusic}><h2 id="music-error">Настройки музыки недоступны</h2><button onClick={closeMusic}>К игре</button></Modal>}><Suspense fallback={<Modal className="music-panel" titleId="music-loading" onClose={closeMusic}><h2 id="music-loading">Открываем музыку…</h2><button onClick={closeMusic}>К игре</button></Modal>}><MusicPanel value={musicPreferences} onChange={setMusicPreferences} status={musicStatus} onRetry={()=>{setMusicPreferences(p=>({...p,enabled:true}));void music.unlock();}} onClose={closeMusic}/></Suspense></AssetBoundary>}
     </div>
   );
 }

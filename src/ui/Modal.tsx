@@ -24,6 +24,7 @@ export function Modal({
     const previousInert = siblings.map((node) => node.inert);
     siblings.forEach((node) => (node.inert = true));
     const key = (event: KeyboardEvent) => {
+      if(overlay?.inert)return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();

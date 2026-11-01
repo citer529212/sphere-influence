@@ -54,14 +54,18 @@ export function createNewsrooms(reduced: boolean,CITY_SITES=DEFAULT_SITES) {
       new THREE.Color(FACTION_COLORS[FACTION_IDS[i % 3]]),
     ),
   );
+  let dirty=true,wasGrowing=false;
   const sync = (regions: Region[], time: number) => {
     for (let i = 0; i < count; i++) {
       const on = !!regions[Math.floor(i / 3)]?.mediaNodes[FACTION_IDS[i % 3]];
+      if(on!==active[i])dirty=true;
       if (on && !active[i]) starts[i] = time;
       active[i] = on;
     }
   };
   const update = (time: number) => {
+    if(!dirty&&!wasGrowing)return false;
+    dirty=false;
     let growing = false;
     for (let i = 0; i < count; i++) {
       if (active[i] && !reduced && time - starts[i] < 1.1) growing = true;
@@ -86,6 +90,7 @@ export function createNewsrooms(reduced: boolean,CITY_SITES=DEFAULT_SITES) {
     }
     buildings.instanceMatrix.needsUpdate = true;
     windows.instanceMatrix.needsUpdate = true;
+    wasGrowing=growing;
     return growing;
   };
   update(0);

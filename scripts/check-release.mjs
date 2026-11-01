@@ -15,3 +15,6 @@ for(const file of readdirSync('dist/assets'))if(file.endsWith('.js'))assert.ok(!
 console.log(`Release checks passed: ${(bytes/1000).toFixed(1)} kB initial JS gzip; lazy 3D engine; relative assets; public app metadata.`);
 
 const music=JSON.parse(readFileSync('public/music/manifest.json','utf8'));assert.equal(music.length,8);for(const item of music){const file='dist/music/'+item.key+'.mp3';assert.ok(existsSync(file),'Missing production music '+item.key);assert.equal(readFileSync(file).length,item.bytes);}assert.ok(existsSync('dist/music/CREDITS.txt'));
+
+assert.ok(![...initial].some(file=>file.includes('MusicPanel')),'Music settings must load on demand');
+for(const row of JSON.parse(readFileSync('public/cinematics/mobile-sources.json','utf8')))assert.equal(readFileSync('dist/cinematics/'+row.file).length,row.bytes,'Mobile movie missing from release');

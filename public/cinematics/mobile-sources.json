@@ -1,0 +1,38 @@
+[
+  {
+    "file": "intro-atlas-mobile.mp4",
+    "originalBytes": 10154868,
+    "bytes": 2968834,
+    "savedPercent": 70.8
+  },
+  {
+    "file": "intro-meridian-mobile.mp4",
+    "originalBytes": 10280750,
+    "bytes": 2932174,
+    "savedPercent": 71.5
+  },
+  {
+    "file": "intro-concordat-mobile.mp4",
+    "originalBytes": 11097172,
+    "bytes": 3151630,
+    "savedPercent": 71.6
+  },
+  {
+    "file": "victory-atlas-mobile.mp4",
+    "originalBytes": 2215530,
+    "bytes": 630318,
+    "savedPercent": 71.6
+  },
+  {
+    "file": "victory-meridian-mobile.mp4",
+    "originalBytes": 2648609,
+    "bytes": 755910,
+    "savedPercent": 71.5
+  },
+  {
+    "file": "victory-concordat-mobile.mp4",
+    "originalBytes": 2557750,
+    "bytes": 753874,
+    "savedPercent": 70.5
+  }
+]

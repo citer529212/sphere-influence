@@ -99,8 +99,8 @@ export function nearestCity(x: number,z: number,sites=CITY_SITES): number {
   sites.forEach((p,i)=>{const d=(p.x-x)**2+(p.y-z)**2;if(d<distance){distance=d;index=i;}});
   return index;
 }
-export function terrainGeometry(): THREE.BufferGeometry {
-  const geo = new THREE.PlaneGeometry(76,48,260,165); geo.rotateX(-Math.PI/2);
+export function terrainGeometry(segmentsX=260,segmentsZ=165): THREE.BufferGeometry {
+  const geo = new THREE.PlaneGeometry(76,48,segmentsX,segmentsZ); geo.rotateX(-Math.PI/2);
   const positions=geo.attributes.position, colors:number[]=[];
   const grass=new THREE.Color('#799060'), forest=new THREE.Color('#3c6248'), sand=new THREE.Color('#d6c395'), rock=new THREE.Color('#777f79'), snow=new THREE.Color('#e3e9e4');
   for(let i=0;i<positions.count;i++){

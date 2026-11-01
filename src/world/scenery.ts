@@ -14,15 +14,15 @@ export function sharedAssetGeometries(): THREE.BufferGeometry[] { return shapes;
 function piece(group:THREE.Group,geometry:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,sx:number,sy:number,sz:number,rotation=0):THREE.Mesh {
   const mesh=new THREE.Mesh(geometry,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.rotation.y=rotation;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;
 }
-export function cityModel(region:Region,index:number):THREE.Group {
+export function cityModel(region:Region,index:number,economy=false):THREE.Group {
   const group=new THREE.Group(),random=randomGenerator(400+index);
   const style=region.politicalOwner,capital=index<12&&index%4===0;
   const walls=material(style==='concordat'?'#bba077':style==='meridian'?'#d1b395':'#ded7bd'),trim=material(style==='meridian'?'#8c5144':style==='concordat'?'#a88043':'#b9a982'),windows=new THREE.MeshStandardMaterial({color:'#b9a16b',emissive:'#ffbf66',emissiveIntensity:.65,roughness:.85}),paving=material('#aaa38c');
   const roof=material(style==='atlas'?'#3e6076':style==='meridian'?'#8f493f':style==='concordat'?'#a4864c':'#677677');
   piece(group,cylinder,paving,0,.035,0,1.9,.07,1.9);
   // Small blocks form streets around a readable central landmark.
-  for(let i=0;i<16;i++){
-    const a=i*Math.PI*2/16,r=1.05+(i%3)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  for(let i=0;i<(economy?10:16);i++){
+    const a=i*Math.PI*2/(economy?10:16),r=1.05+(i%3)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
     const h=.32+random()*.5,w=.3+random()*.15;
     if(style==='concordat'){piece(group,cylinder,walls,x,h/2+.07,z,w*.6,h,w*.6);piece(group,cone,roof,x,h+.16,z,w*.8,.32,w*.8);}
     else{piece(group,box,walls,x,h/2+.07,z,w,h,w*.9,a);piece(group,cone,roof,x,h+.21,z,w*(style==='meridian'?1.1:.85),.28,w*.8,a+Math.PI/4);}
@@ -74,8 +74,8 @@ export function cityModel(region:Region,index:number):THREE.Group {
   // A second ring of grounded blocks gives capitals a broader urban footprint.
   if(capital){
     const site=ALL_CITY_SITES[index],level=heightAt(site.x,site.y);
-    for(let i=0;i<24;i++){
-      const a=i*Math.PI/12,r=2.05+(i%2)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
+    for(let i=0;i<(economy?12:24);i++){
+      const a=i*Math.PI/(economy?6:12),r=2.05+(i%2)*.22,x=Math.cos(a)*r,z=Math.sin(a)*r;
       if(coastDistance(site.x+x,site.y+z)<.4||channel(site.x+x,site.y+z).distance<.5)continue;
       const y=heightAt(site.x+x,site.y+z)-level,h=.35+random()*.45;
       piece(group,box,walls,x,y+h/2,z,.32,h,.35,a);
@@ -112,7 +112,7 @@ export function vegetation(roads:THREE.Vector3[][],economy:boolean,sites=CITY_SI
   const group=new THREE.Group(),random=randomGenerator(723);
   const treePositions:{x:number;z:number;y:number;size:number;angle:number}[]=[];
   const roadSamples=roads.flatMap(path=>path.filter((_,i)=>i%3===0));
-  for(let i=0;i<6500&&treePositions.length<(economy?460:1050);i++){
+  for(let i=0;i<6500&&treePositions.length<(economy?320:1050);i++){
     const x=(random()-.5)*64,z=(random()-.5)*36,d=coastDistance(x,z);
     if(climateAt(x,z)==='arid'||isNeutralLand(x,z)||d<.8||sites.some(p=>Math.hypot(p.x-x,p.y-z)<2.5))continue;
     if(.5+Math.sin(x*.8)*Math.cos(z*.7)*.5<.35)continue;

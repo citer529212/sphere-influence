@@ -319,6 +319,18 @@ for(const faction of ['atlas','meridian','concordat']){
  r.player.setHidden(true);ready({duration:100});await tick();assert.equal(r.context.sources.length,0);
  r.player.setHidden(false);await tick();assert.equal(r.context.sources.length,1);r.player.dispose();
 }
+// Switching themes must evict the previous decoded PCM buffer.
+{
+ const r=rig();r.player.setTheme('atlas');await r.player.unlock();r.context.advance(1);r.player.setTheme('meridian');await tick();r.context.advance(1);r.player.setTheme('atlas');await tick();assert.deepEqual(r.loads,['atlas','meridian','atlas']);r.player.dispose();
+}
+// Default fetch/decode path serializes PCM work even if requests finish together.
+{
+ const previousFetch=globalThis.fetch;const context=new Context(),releases=[];let concurrent=0,peak=0;
+ context.decodeAudioData=async()=>{concurrent++;peak=Math.max(peak,concurrent);await new Promise(resolve=>releases.push(resolve));concurrent--;return {duration:120};};
+ globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(8)});
+ const player=new MusicPlayer({context:()=>context});
+ try{const a=player.prepare('atlas'),b=player.prepare('meridian');await tick();assert.equal(concurrent,1);releases.shift()();await tick();assert.equal(concurrent,1);releases.shift()();await Promise.all([a,b]);assert.equal(peak,1);}finally{player.dispose();globalThis.fetch=previousFetch;}
+}
 const manifest = JSON.parse(readFileSync("public/music/manifest.json", "utf8"));
 assert.equal(manifest.length, 8);
 for (const item of manifest) {

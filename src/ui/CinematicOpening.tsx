@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { compactDevice,deviceHints } from '../device';
+import { MOBILE_INTRO_MOVIES,MOBILE_VICTORY_MOVIES } from './mobileCinematicAssets';
 import { FactionId } from "../game/types";
 import { REALMS } from "../game/realms";
 import { Modal } from "./Modal";
@@ -32,6 +34,7 @@ export function CinematicOpening({
   onUnavailable: () => void;
 }): JSX.Element {
   const victory = variant === "victory";
+  const [mobile]=useState(()=>compactDevice(deviceHints()));
   const video = useRef<HTMLVideoElement>(null),
     done = useRef(false),
     onDoneRef = useRef(onDone);
@@ -100,7 +103,7 @@ export function CinematicOpening({
     >
       <video
         ref={video}
-        src={victory ? VICTORY_MOVIES[faction] : INTRO_MOVIES[faction]}
+        src={victory ? (mobile?MOBILE_VICTORY_MOVIES:VICTORY_MOVIES)[faction] : (mobile?MOBILE_INTRO_MOVIES:INTRO_MOVIES)[faction]}
         poster={victory ? VICTORY_POSTERS[faction] : INTRO_POSTER}
         preload="metadata"
         playsInline

@@ -1,0 +1,69 @@
+[
+  {
+    "file": "intro-atlas-mobile.mp4",
+    "bytes": 2968834,
+    "sha256": "925402bcf8bda87c197cd8530db9ef14cd7b3e4b59e86a85b7174f7cd4c8e1fd",
+    "parts": [
+      "intro-atlas-mobile.00.part",
+      "intro-atlas-mobile.01.part",
+      "intro-atlas-mobile.02.part",
+      "intro-atlas-mobile.03.part",
+      "intro-atlas-mobile.04.part",
+      "intro-atlas-mobile.05.part"
+    ]
+  },
+  {
+    "file": "intro-concordat-mobile.mp4",
+    "bytes": 3151630,
+    "sha256": "21cab4b3e1fc2308eb28f3e2ee24d83b2b542414cbca74276e0af6f5514bc540",
+    "parts": [
+      "intro-concordat-mobile.00.part",
+      "intro-concordat-mobile.01.part",
+      "intro-concordat-mobile.02.part",
+      "intro-concordat-mobile.03.part",
+      "intro-concordat-mobile.04.part",
+      "intro-concordat-mobile.05.part",
+      "intro-concordat-mobile.06.part"
+    ]
+  },
+  {
+    "file": "intro-meridian-mobile.mp4",
+    "bytes": 2932174,
+    "sha256": "7893b1afa6e06b83b9ddcc7827a8a0dcf1f7812e441b96f1d4681c1e03c5d150",
+    "parts": [
+      "intro-meridian-mobile.00.part",
+      "intro-meridian-mobile.01.part",
+      "intro-meridian-mobile.02.part",
+      "intro-meridian-mobile.03.part",
+      "intro-meridian-mobile.04.part",
+      "intro-meridian-mobile.05.part"
+    ]
+  },
+  {
+    "file": "victory-atlas-mobile.mp4",
+    "bytes": 630318,
+    "sha256": "dbaede5acbee80a5c32375dc5b9875846fa69fa8b1110c17b7366ea3d248ad39",
+    "parts": [
+      "victory-atlas-mobile.00.part",
+      "victory-atlas-mobile.01.part"
+    ]
+  },
+  {
+    "file": "victory-concordat-mobile.mp4",
+    "bytes": 753874,
+    "sha256": "4f87b1980c244ea453080f9bf09f13f8d7f3f58d9290ac0c5d1b74c087e00476",
+    "parts": [
+      "victory-concordat-mobile.00.part",
+      "victory-concordat-mobile.01.part"
+    ]
+  },
+  {
+    "file": "victory-meridian-mobile.mp4",
+    "bytes": 755910,
+    "sha256": "a97fba59e8de91ea0b9881a397b4a3220d7679e25bd594855b73622296293d9a",
+    "parts": [
+      "victory-meridian-mobile.00.part",
+      "victory-meridian-mobile.01.part"
+    ]
+  }
+]

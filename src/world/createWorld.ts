@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { compactDevice,deviceHints,renderProfile } from '../device';
+import { overviewPose } from './viewport';
+import { FrameBudget } from './frameBudget';
+import { TapGesture } from './tapGesture';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FactionId } from '../game/types';
@@ -17,28 +21,28 @@ import { createDaylight, LightingMode } from './daylight';
 import { createNewsrooms } from './newsrooms';
 
 export type WorldState={regions:Region[];selectedRegionId:string|null;layer:'political'|'information';player?:FactionId;network?:boolean;lighting?:LightingMode;reachableIds?:string[];actionEvent?:ActionEvent|null};
-export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
+export type WorldApi={update:(state:WorldState)=>void;reset:()=>void;focus:(id?:string,wide?:boolean)=>void;capture:()=>string;setInteraction:(enabled:boolean)=>void;setKeyboard:(enabled:boolean)=>void;setActive:(enabled:boolean)=>void;zoom:(factor:number)=>void;dispose:()=>void};
 type Callbacks={select:(id:string)=>void;hover:(id:string|null)=>void;announce:(text:string)=>void;error:()=>void};
 type CityVisual={id:string;center:THREE.Vector2;ground:number;border:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;flag:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;ring:THREE.Mesh<THREE.RingGeometry,THREE.MeshBasicMaterial>;wave:THREE.Mesh<THREE.RingGeometry,THREE.ShaderMaterial>;node:THREE.Group;label:HTMLButtonElement;support:HTMLSpanElement;controller:Region['infoController'];targetBorder:THREE.Color;targetFlag:THREE.Color;pulseStart:number;badge:HTMLSpanElement;effectStart:number;buildStart:number;};
 
 export function createWorld(container:HTMLDivElement,initial:WorldState,callbacks:Callbacks):WorldApi {
   const CITY_SITES=initial.regions.map(r=>ALL_CITY_SITES[cityIndex(r)]);
-  const economy=window.matchMedia('(max-width: 600px)').matches;
+  const hints=deviceHints(),profile=renderProfile(hints),economy=profile.economy;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const renderer=new THREE.WebGLRenderer({antialias:!economy,powerPreference:'high-performance'});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,economy?1:1.5));
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+  const renderer=new THREE.WebGLRenderer({antialias:!economy,powerPreference:economy?'low-power':'high-performance'});
+  renderer.setPixelRatio(profile.pixelRatio);
+  renderer.shadowMap.enabled=profile.shadows;renderer.shadowMap.type=THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate=false;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
-  const canvas=renderer.domElement;canvas.tabIndex=0;canvas.setAttribute('aria-label','3D-карта трёх материков. WASD — перемещение камеры, Shift — ускорение. Перетаскивайте для вращения, прокручивайте для приближения. Выбор городов доступен также в списке.');container.appendChild(canvas);
+  const canvas=renderer.domElement;canvas.tabIndex=0;canvas.setAttribute('aria-label',compactDevice(hints)?'3D-карта. Один палец — сдвиг, два пальца — масштаб и поворот. Коснитесь города или выберите его в панели действий.':'3D-карта трёх материков. WASD — перемещение камеры, Shift — ускорение. Перетаскивайте для вращения, прокручивайте для приближения. Выбор городов доступен также в списке.');container.appendChild(canvas);
   const scene=new THREE.Scene();scene.background=new THREE.Color('#142f40');scene.fog=new THREE.FogExp2('#19394a',.0028);
   const camera=new THREE.PerspectiveCamera(39,1,.1,600);
-  const controls=new OrbitControls(camera,canvas);controls.enableDamping=!reduced;controls.dampingFactor=.085;controls.minDistance=10;controls.maxDistance=220;controls.minPolarAngle=.22;controls.maxPolarAngle=Math.PI*.43;controls.screenSpacePanning=false;controls.maxTargetRadius=40;
+  const controls=new OrbitControls(camera,canvas);controls.enableDamping=!reduced;controls.dampingFactor=.085;controls.minDistance=10;controls.maxDistance=220;controls.minPolarAngle=.22;controls.maxPolarAngle=Math.PI*.43;controls.screenSpacePanning=false;controls.maxTargetRadius=40;controls.touches.ONE=THREE.TOUCH.PAN;controls.touches.TWO=THREE.TOUCH.DOLLY_ROTATE;
   const sky=new THREE.HemisphereLight('#d9eaf2','#48533c',1.45);scene.add(sky);
-  const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=true;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
+  const sun=new THREE.DirectionalLight('#ffe4b6',3.1);sun.position.set(-22,42,-24);sun.castShadow=profile.shadows;sun.shadow.mapSize.set(economy?1024:2048,economy?1024:2048);
   Object.assign(sun.shadow.camera,{left:-39,right:39,top:30,bottom:-30,near:1,far:100});sun.shadow.normalBias=.11;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun);
-  const terrain=new THREE.Mesh(terrainGeometry(),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry,CITY_SITES);
-  const water=createWater();scene.add(water);
+  const terrain=new THREE.Mesh(terrainGeometry(...profile.terrainSegments),new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.castShadow=true;terrain.receiveShadow=true;scene.add(terrain);const opinionTint=createOpinionTint(terrain.geometry,CITY_SITES);
+  const water=createWater(economy);scene.add(water);
   for(const faction of ['atlas','meridian','concordat','neutral'] as const){
     const geos=MAP_LANDS.filter(p=>p.faction===faction).map(land=>{const points=land.points.map(([x,z])=>new THREE.Vector3(x,Math.max(.08,heightAt(x,z)+.12),z));points.push(points[0].clone());return ribbon(points,.055);});
     const geo=mergeGeometries(geos);geos.forEach(g=>g.dispose());if(geo)scene.add(new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:FACTION_COLORS[faction],transparent:true,opacity:.48,side:THREE.DoubleSide,depthWrite:false})));
@@ -75,7 +79,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const visuals:CityVisual[]=[];
   initial.regions.slice(0,CITY_SITES.length).forEach((region,index)=>{
     const center=CITY_SITES[index],ground=heightAt(center.x,center.y);
-    const model=cityModel(region,cityIndex(region));model.position.set(center.x,ground,center.y);staticGroups.push(model);
+    const model=cityModel(region,cityIndex(region),economy);model.position.set(center.x,ground,center.y);staticGroups.push(model);
     const points:THREE.Vector3[]=[];const poly=ALL_TERRITORIES[cityIndex(region)];
     poly.forEach((p,i)=>{
       const next=poly[(i+1)%poly.length],steps=Math.max(1,Math.ceil(p.distanceTo(next)/.35));
@@ -161,8 +165,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
   const keyup=(event:KeyboardEvent)=>navigation.release(event.code);
   window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
   const reset=()=>{
-    const fit=Math.max(1,1.65/(container.clientWidth/container.clientHeight));
-    travel=null;controls.target.set(0,.5,0);camera.position.set(3*fit,57*fit,47*fit);controls.update();
+    const pose=overviewPose(container.clientWidth,container.clientHeight);
+    travel=null;controls.maxDistance=pose.maxDistance;controls.target.set(0,.5,0);camera.position.set(pose.x,pose.y,pose.z);controls.update();
   };
   const focus=(id=state.selectedRegionId,wide=false)=>{
     const visual=visuals.find(v=>v.id===id);if(!visual)return;
@@ -185,22 +189,25 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const hit=raycaster.intersectObject(terrain)[0];if(!hit||hit.point.y<.1||coastDistance(hit.point.x,hit.point.z)<0)return null;
     return state.regions[nearestCity(hit.point.x,hit.point.z,CITY_SITES)]?.id??null;
   };
-  const active=new Set<number>();let startX=0,startY=0,multiTouch=false,lastHover:string|null=null;
-  const down=(event:PointerEvent)=>{active.add(event.pointerId);if(active.size>1)multiTouch=true;else{startX=event.clientX;startY=event.clientY;multiTouch=false;}};
-  const up=(event:PointerEvent)=>{if(event.button===0&&active.size===1&&!multiTouch&&Math.hypot(event.clientX-startX,event.clientY-startY)<6){const hit=hitTest(event);if(hit)callbacks.select(hit);}active.delete(event.pointerId);};
-  const cancel=(event:PointerEvent)=>{active.delete(event.pointerId);};
-  let lastMove=0;
-  const move=(event:PointerEvent)=>{if(active.size||performance.now()-lastMove<70)return;lastMove=performance.now();const hit=hitTest(event);canvas.style.cursor=hit?'pointer':'grab';if(hit!==lastHover){lastHover=hit;callbacks.hover(hit);}};
+  const gesture=new TapGesture();let lastHover:string|null=null,lastMove=0;
+  const down=(event:PointerEvent)=>gesture.begin(event);
+  const up=(event:PointerEvent)=>{if(gesture.end(event)&&event.button===0){const hit=hitTest(event);if(hit)callbacks.select(hit);}};
+  const cancel=(event:PointerEvent)=>gesture.cancel(event);
+  const move=(event:PointerEvent)=>{gesture.move(event);if(gesture.active||event.pointerType==='touch'||performance.now()-lastMove<100)return;lastMove=performance.now();const hit=hitTest(event);canvas.style.cursor=hit?'pointer':'grab';if(hit!==lastHover){lastHover=hit;callbacks.hover(hit);}};
   const leave=()=>{lastHover=null;callbacks.hover(null);};
   const contextLost=(event:Event)=>{event.preventDefault();callbacks.error();};
   canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',cancel);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerleave',leave);canvas.addEventListener('webglcontextlost',contextLost);
-  let visible=true;const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;});observer.observe(container);
-  let frame=0,last=performance.now(),rendered=0,totalFrameMs=0,profileFrames=0;
-  const projected=new THREE.Vector3();
+  let visible=true,engaged=true,frame=0,rendered=0,totalFrameMs=0,profileFrames=0;
+  const budget=new FrameBudget(profile.fps);
+  const wake=()=>{if(!frame&&visible&&engaged&&!document.hidden)frame=requestAnimationFrame(animate);};
+  const sleeping=()=>{if(!visible||!engaged||document.hidden){cancelAnimationFrame(frame);frame=0;budget.reset();navigation.clear();gesture.clear();}else wake();};
+  const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;sleeping();});observer.observe(container);
+  document.addEventListener('visibilitychange',sleeping);
+  const projected=new THREE.Vector3();let labelsAt=-1;
   const animate=(now:number)=>{
-    frame=requestAnimationFrame(animate);const elapsed=now-last;last=now;
-    if(document.hidden||!visible)return;
-    const dt=Math.min(elapsed/1000,.05);currentTime+=dt;
+    frame=0;if(document.hidden||!visible||!engaged){budget.reset();return;}wake();
+    const dt=budget.take(now);if(dt===null)return;
+    const elapsed=dt*1000;currentTime+=dt;
     if(travel){const amount=1-Math.exp(-dt*6);camera.position.lerp(travel.position,amount);controls.target.lerp(travel.target,amount);if(camera.position.distanceTo(travel.position)<.03)travel=null;}
     if(navigation.moving&&keyboardEnabled&&controls.enabled){
       const forward=controls.target.clone().sub(camera.position);forward.y=0;forward.normalize();
@@ -215,6 +222,8 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     }
     controls.update();water.material.uniforms.time.value=reduced?0:currentTime;living.update(currentTime);if(newsrooms.update(currentTime))renderer.shadowMap.needsUpdate=true;if(daylight.update(currentTime,state.lighting))renderer.shadowMap.needsUpdate=true;
     if(broadcast.visible){connections.forEach((connection,i)=>{connection.curve.getPoint(reduced?.5:(currentTime*.17+i*.137)%1,signalPosition);signalMatrix.compose(signalPosition,signalRotation,signalScale.setScalar(connection.active?1:0));signals.setMatrixAt(i,signalMatrix);});signals.instanceMatrix.needsUpdate=true;}
+    const viewWidth=container.clientWidth,viewHeight=container.clientHeight;
+    const updateLabels=currentTime-labelsAt>=(economy?.1:1/30);if(updateLabels)labelsAt=currentTime;
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);
       const age=currentTime-v.pulseStart;
@@ -222,12 +231,12 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       const buildAge=currentTime-v.buildStart;v.node.scale.setScalar(reduced||buildAge>1?1:Math.max(.05,Math.min(1,buildAge*1.4)));
       if(v.wave.visible){v.wave.material.uniforms.progress.value=Math.max(0,Math.min(1,age/2));if(age>=2)v.wave.visible=false;}
       if(!reduced){const positions=v.flag.geometry.attributes.position;for(let i=0;i<positions.count;i++){const x=positions.getX(i);positions.setZ(i,Math.sin(currentTime*2.4+x*6+v.center.x)*x*.16);}positions.needsUpdate=true;}
-      if(rendered%2===0){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.transform=`translate(-50%,0)`;v.label.style.left=`${(projected.x*.5+.5)*container.clientWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*container.clientHeight}px`;v.label.hidden=(container.clientWidth<600&&v.id!==state.selectedRegionId&&!(state.actionEvent?.regionId===v.id&&currentTime-v.effectStart<2.8))||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
+      if(updateLabels){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.left=`${(projected.x*.5+.5)*viewWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*viewHeight}px`;v.label.hidden=(economy&&v.id!==state.selectedRegionId&&!(state.actionEvent?.regionId===v.id&&currentTime-v.effectStart<2.8))||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
     });
     if(messenger){const t=Math.min(1,(currentTime-messenger.start)/1.25);messenger.orb.position.copy(messenger.curve.getPoint(t));messenger.line.geometry.setDrawRange(0,Math.max(2,Math.floor(t*64)));messenger.line.material.opacity=1-t*.6;if(t===1)clearMessenger();}
     renderer.render(scene,camera);rendered++;
     if(elapsed<100&&rendered>20){totalFrameMs+=elapsed;profileFrames++;}
-    if(import.meta.env.DEV&&rendered===140)console.info('[WorldScene] Rendering profile',JSON.stringify({drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,averageFrameMs:Math.round(totalFrameMs/Math.max(1,profileFrames)*10)/10,quality:economy?'economy':'standard'}));
+    if(import.meta.env.DEV&&rendered===140)console.info('[WorldScene] Rendering profile',JSON.stringify({drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,averageFrameMs:Math.round(totalFrameMs/Math.max(1,profileFrames)*10)/10,quality:economy?'economy':'standard',targetFps:profile.fps}));
   };frame=requestAnimationFrame(animate);
   const capture=():string=>{
     const width=1200,height=500,target=new THREE.WebGLRenderTarget(width,height);
@@ -242,10 +251,10 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
       ctx.putImageData(image,0,0);return output.toDataURL('image/png');
     }finally{renderer.setRenderTarget(previous);target.dispose();}
   };
-  const setInteraction=(enabled:boolean)=>{controls.enabled=enabled;canvas.style.touchAction=enabled?'none':'pan-y';active.clear();multiTouch=false;navigation.clear();};
-  return {update,reset,focus,capture,setInteraction,setKeyboard:enabled=>{keyboardEnabled=enabled;navigation.clear();},zoom:factor=>{travel=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();},dispose:()=>{
+  const setInteraction=(enabled:boolean)=>{controls.enabled=enabled;canvas.style.touchAction=enabled?'none':'pan-y';gesture.clear();navigation.clear();};
+  return {update,reset,focus,capture,setInteraction,setActive:enabled=>{engaged=enabled;sleeping();},setKeyboard:enabled=>{keyboardEnabled=enabled;navigation.clear();},zoom:factor=>{travel=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();},dispose:()=>{
     window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);
-    clearMessenger();cancelAnimationFrame(frame);clearTimeout(announcementTimer);resize.disconnect();observer.disconnect();controls.removeEventListener('start',stopTravel);controls.dispose();
+    document.removeEventListener('visibilitychange',sleeping);clearMessenger();cancelAnimationFrame(frame);clearTimeout(announcementTimer);resize.disconnect();observer.disconnect();controls.removeEventListener('start',stopTravel);controls.dispose();
     canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',cancel);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('webglcontextlost',contextLost);
     const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();scene.traverse(object=>{if(object instanceof THREE.Mesh||object instanceof THREE.Line){geometries.add(object.geometry);(Array.isArray(object.material)?object.material:[object.material]).forEach(m=>materials.add(m));if(object instanceof THREE.InstancedMesh)object.dispose();}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.shadow.dispose();(water.material.uniforms.shore.value as THREE.Texture).dispose();renderer.dispose();canvas.remove();labelLayer.remove();
   }};

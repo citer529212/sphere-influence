@@ -14,3 +14,6 @@ media-work/
 offline/
 
 deliverables/
+
+# Generated from checked parts by pretest/prebuild/predev.
+public/cinematics/*-mobile.mp4

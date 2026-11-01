@@ -1088,3 +1088,64 @@ button:focus-visible, select:focus-visible { outline: 2px solid #f5dc9c; outline
 .music-panel{max-width:760px}.music-panel a{color:#e4cb8a;text-decoration:underline;overflow-wrap:anywhere}
 .music-panel button:focus-visible,.music-panel a:focus-visible,.music-controls input:focus-visible{outline:3px solid #f6d778;outline-offset:4px}
 .music-credits{padding-left:22px;display:grid;gap:14px}.music-panel>p{line-height:1.65}
+/* The compact class also covers phones rotated into landscape. */
+.map-tools-content{display:contents}
+.game-shell.is-compact{--mobile-top:max(8px,env(safe-area-inset-top));--mobile-bottom:env(safe-area-inset-bottom,0px);--mobile-left:max(8px,env(safe-area-inset-left));--mobile-right:max(8px,env(safe-area-inset-right))}
+.game-shell.is-compact button,.game-shell.is-compact select,.game-shell.is-compact summary{min-height:44px;touch-action:manipulation}
+.game-shell.is-compact button,.game-shell.is-compact select{font-size:12px}
+.game-shell.is-compact .game-hud{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px 44px;gap:6px;top:var(--mobile-top);left:var(--mobile-left);right:var(--mobile-right)}
+.game-shell.is-compact .game-hud>div{height:44px;min-width:0;max-width:none;margin:0;backdrop-filter:none;box-shadow:none;border-radius:8px}
+.game-shell.is-compact .hud-brand{grid-column:1;grid-row:1;padding:0 6px 0 0;gap:5px;overflow:hidden}
+.game-shell.is-compact .hud-brand>button{width:44px;height:44px;flex-shrink:0}
+.game-shell.is-compact .hud-brand h1{font-size:14px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.game-shell.is-compact .hud-brand>div{min-width:0}.game-shell.is-compact .hud-brand div>span{font-size:10px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.game-shell.is-compact .hud-resources{grid-row:1;grid-column:2;padding:5px 8px;gap:10px;white-space:nowrap}
+.game-shell.is-compact .hud-resources strong{font-size:18px}.game-shell.is-compact .hud-resources i{font-size:14px}.game-shell.is-compact .hud-resources small{display:none}
+.game-shell.is-compact .game-hud>.hud-world{grid-row:2;grid-column:1/-1;justify-content:flex-end;gap:12px;background:#102831d9;padding:0 8px}
+.game-shell.is-compact .hud-world strong{font-size:17px}.game-shell.is-compact .hud-save{display:none}.game-shell.is-compact .season-chip{font-size:11px}
+.game-shell.is-compact .world-shortcuts{top:calc(var(--mobile-top) + 102px);left:var(--mobile-left);gap:4px;max-width:calc(100% - 108px)}
+.game-shell.is-compact .world-shortcuts button{min-width:44px;padding:8px;font-size:11px}.game-shell.is-compact .world-shortcuts button span{display:none}
+.game-shell.is-compact .fullscreen-world .world-toolbar{top:calc(var(--mobile-top) + 102px);bottom:auto;left:auto;right:var(--mobile-right);z-index:32;display:flex;flex-wrap:wrap;max-width:calc(100% - var(--mobile-left) - var(--mobile-right));width:min(350px,calc(100% - var(--mobile-left) - var(--mobile-right)));padding:6px;gap:6px;backdrop-filter:none}
+.game-shell.is-compact .fullscreen-world .world-toolbar.mobile-tools-closed{width:auto;padding:0;border:0;background:none;box-shadow:none}
+.game-shell.is-compact .world-toolbar .mobile-tools-toggle{margin-left:auto;min-width:88px;font-size:12px!important;padding:8px!important}
+.game-shell.is-compact .mobile-tools-closed .map-tools-content{display:none!important}
+.game-shell.is-compact .map-tools-content{display:flex;flex-wrap:wrap;gap:6px;min-width:0;flex-basis:100%}
+.game-shell.is-compact .touch-help{display:block;flex-basis:100%;font-size:12px;line-height:1.5;color:#b9d0c6}
+.game-shell.is-compact .fullscreen-world .map-layer-switch,.game-shell.is-compact .fullscreen-world .map-zoom{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.game-shell.is-compact .fullscreen-world .world-toolbar button,.game-shell.is-compact .fullscreen-world .map-layer-switch button[aria-pressed=true]{display:inline-flex!important;align-items:center;justify-content:center;min-width:44px;min-height:44px;font-size:12px!important;padding:8px!important}
+.game-shell.is-compact .opinion-inspector{position:static}.game-shell.is-compact .opinion-panel{right:0;left:auto;width:min(320px,calc(100vw - 32px))}
+.game-shell.is-compact .command-dock,.game-shell.is-compact .command-dock.is-collapsed{left:var(--mobile-left);right:var(--mobile-right);width:auto;bottom:calc(104px + var(--mobile-bottom));max-height:min(48dvh,calc(100dvh - 240px));padding:8px;backdrop-filter:none;overscroll-behavior:contain}
+.game-shell.is-compact .dock-title{height:0;margin:0}.game-shell.is-compact .dock-title>span{display:none}.game-shell.is-compact .dock-title button{position:absolute;top:8px;right:8px;width:44px;min-width:44px;height:44px}
+.game-shell.is-compact .city-switcher{padding-right:50px;gap:4px;min-width:0}.game-shell.is-compact .city-switcher>button{width:44px;min-width:44px;height:44px}.game-shell.is-compact .city-switcher select{height:44px;font-size:16px;min-width:0}
+.game-shell.is-compact .compact-actions{grid-template-columns:1fr;gap:6px}.game-shell.is-compact .compact-action{flex-direction:row;text-align:left;min-height:64px;padding:10px;gap:8px}.game-shell.is-compact .compact-action>i{display:none}.game-shell.is-compact .compact-action strong{font-size:12px}.game-shell.is-compact .compact-action small{font-size:11px;line-height:1.4}.game-shell.is-compact .compact-action>b{margin:0;font-size:12px}
+.game-shell.is-compact .topic-choices button{font-size:11px;padding:8px 4px}.game-shell.is-compact .city-status{display:none}.game-shell.is-compact .climate-note,.game-shell.is-compact .media-reach{font-size:11px}
+.game-shell.is-compact .end-turn-dock{left:var(--mobile-left);right:var(--mobile-right);width:auto;bottom:calc(10px + var(--mobile-bottom));height:56px}
+.game-shell.is-compact .influence-victory{left:var(--mobile-left);right:var(--mobile-right);width:auto;bottom:calc(74px + var(--mobile-bottom));font-size:11px;min-height:22px;box-sizing:border-box}
+.game-shell.is-compact .hud-tutorial{left:var(--mobile-left);right:var(--mobile-right);top:calc(var(--mobile-top) + 154px);bottom:auto;max-width:none;padding:8px 12px;backdrop-filter:none}.game-shell.is-compact .hud-tutorial button{width:44px;height:44px;flex-shrink:0}.game-shell.is-compact .hud-tutorial p{font-size:12px}
+.game-shell.is-compact .map-event-toast,.game-shell.is-compact .pending-event-banner,.game-shell.is-compact .race-warning{left:var(--mobile-left);right:var(--mobile-right);top:calc(var(--mobile-top) + 154px);max-width:none;transform:none;font-size:12px;backdrop-filter:none}
+.game-shell.is-compact .turn-playback{top:auto;bottom:calc(174px + var(--mobile-bottom));left:var(--mobile-left);right:var(--mobile-right);width:auto;transform:none;box-sizing:border-box}
+.game-shell.is-compact:has(.turn-playback) .command-dock .dock-body{display:none}
+.game-shell.is-compact .result-overlay{padding:max(8px,env(safe-area-inset-top)) var(--mobile-right) max(8px,env(safe-area-inset-bottom)) var(--mobile-left);box-sizing:border-box}
+.game-shell.is-compact .result-box:not(.cinematic-player){width:100%;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);padding:18px 14px;box-sizing:border-box;overscroll-behavior:contain;overflow-wrap:anywhere}
+.game-shell.is-compact .result-box input,.game-shell.is-compact .result-box textarea,.game-shell.is-compact .result-box select{font-size:16px}
+.game-shell .music-controls input[type=checkbox]{width:22px;height:22px;padding:0;flex:0 0 22px}
+.game-shell.is-compact .result-overlay:has(.cinematic-player){padding:0}.game-shell.is-compact .cinematic-top{padding-top:max(12px,env(safe-area-inset-top))}
+@media(max-height:500px) and (orientation:landscape){
+ .game-shell.is-compact .game-hud{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:44px}.game-shell.is-compact .game-hud>.hud-world{grid-row:1;grid-column:3}.game-shell.is-compact .hud-brand h1{font-size:13px}
+ .game-shell.is-compact .command-dock,.game-shell.is-compact .command-dock.is-collapsed{left:auto;width:min(320px,44vw);bottom:calc(72px + var(--mobile-bottom));max-height:calc(100dvh - 132px)}
+ .game-shell.is-compact .end-turn-dock{left:auto;width:min(320px,44vw);height:48px}.game-shell.is-compact .influence-victory{left:var(--mobile-left);right:auto;width:calc(56vw - 24px);bottom:calc(10px + var(--mobile-bottom));font-size:10px}
+ .game-shell.is-compact .world-shortcuts{top:calc(var(--mobile-top) + 54px)}.game-shell.is-compact .fullscreen-world .world-toolbar{right:auto;left:var(--mobile-left);top:calc(var(--mobile-top) + 106px);max-width:calc(56vw - 24px)}
+ .game-shell.is-compact .hud-tutorial{display:none}.game-shell.is-compact .turn-playback{left:var(--mobile-left);right:auto;max-width:calc(56vw - 24px);bottom:calc(52px + var(--mobile-bottom))}
+ .game-shell.is-compact .map-event-toast,.game-shell.is-compact .race-warning,.game-shell.is-compact .pending-event-banner{top:calc(var(--mobile-top) + 54px);left:auto;right:var(--mobile-right);width:min(320px,44vw);max-height:70px;overflow:hidden}
+ .game-shell.is-compact .cinematic-top,.game-shell.is-compact .cinematic-bottom{padding:8px max(10px,env(safe-area-inset-left))}.game-shell.is-compact .cinematic-bottom{padding-bottom:max(8px,env(safe-area-inset-bottom))}.game-shell.is-compact .cinematic-player h2{font-size:15px;margin:4px 0}.game-shell.is-compact .cinematic-chapters{display:none}
+}
+
+.fullscreen-world .map-tools-content>span:not(.touch-help){display:none}
+
+.result-overlay:has(.music-panel){z-index:1200}
+.game-shell.is-compact .realm-screen{padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));overscroll-behavior:contain}
+
+.game-shell.is-compact .dock-title{position:sticky;top:0;z-index:4}
+.game-shell.is-compact .dock-title button{top:0;right:0}
+.game-shell.is-compact .city-switcher{position:sticky;top:0;z-index:3;background:#17323b}
+.music-controls label:has(input[type=checkbox]){min-height:44px}
