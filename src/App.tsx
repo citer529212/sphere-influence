@@ -2,12 +2,14 @@ import {
   lazy,
   Suspense,
   useCallback,
+  useMemo,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { MapLoading } from "./components/MapLoading";
 import { AssetBoundary } from "./ui/AssetBoundary";
+import { turnReadingTime } from "./ui/turnTiming";
 import { FACTIONS } from "./game/data";
 import {
   actionCost,
@@ -78,7 +80,6 @@ const ResultCard = lazy(() =>
   import("./ui/ResultCard").then((m) => ({ default: m.ResultCard })),
 );
 const MusicPanel=lazy(()=>import("./ui/MusicPanel").then(m=>({default:m.MusicPanel})));
-const Tutorial = lazy(() => import("./ui/Tutorial"));
 const ACTION_ICONS = { media: "◈", attract: "⚑", protect: "◇" };
 const tutorial = [
   {
@@ -154,6 +155,15 @@ export default function App(): JSX.Element {
   const [mapStarted,setMapStarted]=useState(boot.restored);
   const [eventOpen, setEventOpen] = useState(false);
   const [learning, setLearning] = useState(false);
+  const [schoolAttempt,setSchoolAttempt]=useState(0);
+  const Tutorial=useMemo(()=>lazy(()=>import('./ui/Tutorial')),[schoolAttempt]);
+  const [assetUpdate,setAssetUpdate]=useState(false);
+  const [turnPaused,setTurnPaused]=useState(false);
+  useEffect(()=>{
+    const failed=(event:Event)=>{event.preventDefault();setAssetUpdate(true);};
+    window.addEventListener('vite:preloadError',failed);
+    return()=>window.removeEventListener('vite:preloadError',failed);
+  },[]);
   const [victorySeen,setVictorySeen]=useState<string|null>(null);
   const [saved, setSaved] = useState(true),
     [challenge, setChallenge] = useState(boot.challenge),
@@ -328,6 +338,7 @@ export default function App(): JSX.Element {
         .map((f) => `${REALMS[f.event.actor].name}: ${f.event.text}`),
     );
     setFrames([]);
+    setTurnPaused(false);
     setFrameIndex(0);
     setPreferences((p) =>
       p.tutorialStep === 2 ? { ...p, tutorialStep: 3 } : p,
@@ -348,19 +359,25 @@ export default function App(): JSX.Element {
     setGame(frame.state);
     setWorldEvent({ ...frame.event, id: ++eventCounter.current });
     void audio.play(frame.event.kind === "blocked" ? "protect" : "turn");
+  },[frames,frameIndex,audio]);
+  useEffect(()=>{
+    if(!frames.length)return;
+    const frame=frames[frameIndex];
+    if(turnPaused)return;
     const timer = setTimeout(
       () => {
         if (frameIndex === frames.length - 1) finishTurn();
         else setFrameIndex((i) => i + 1);
       },
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? 350
-        : frame.event.kind === "income"
-          ? 1000
-          : 1250,
+      turnReadingTime(frame.event.text,frame.event.kind==='income'),
     );
     return () => clearTimeout(timer);
-  }, [frames, frameIndex, finishTurn, audio]);
+  }, [frames, frameIndex, finishTurn, audio,turnPaused]);
+  useEffect(()=>{
+    const hidden=()=>{if(document.hidden&&busy)setTurnPaused(true);};
+    document.addEventListener('visibilitychange',hidden);
+    return()=>document.removeEventListener('visibilitychange',hidden);
+  },[busy]);
   const select = (id: string) => {
     if (busy) return;
     setSelectedId(id);
@@ -556,7 +573,7 @@ export default function App(): JSX.Element {
             <small>+{income}/ход</small>
           </span>
           <span title="Доверие">
-            <i>♡</i>
+            <i>♡</i><small className="trust-caption">Доверие</small>
             <strong key={`t${game.trust}`} className="resource-change">
               {game.trust}%
             </strong>
@@ -683,6 +700,11 @@ export default function App(): JSX.Element {
           >
             ›
           </button>
+        </div>
+        <div className="city-summary" aria-live="polite">
+          <span>Поддержка в городе <strong>{region.influence[player]}%</strong></span>
+          <small>{region.infoController===player?'Вы лидируете':`До лидерства +${supportNeeded(region,player)}`}</small>
+          <button aria-label="Чем поддержка отличается от доверия" onClick={()=>setRules(true)}>?</button>
         </div>
         <div id="city-commands" className="dock-body" hidden={collapsed}>
           <details className="city-specialty">
@@ -911,7 +933,12 @@ export default function App(): JSX.Element {
               ? `Редакции: ${frameIndex + 1}/${frames.length - 1}`
               : "Ваш следующий ход"}
           </span>
-          <button onClick={finishTurn}>Пропустить анимацию</button>
+          <p className="turn-action-text">{frames[frameIndex]?.event.text}</p>
+          <div className="turn-buttons">
+            <button aria-pressed={turnPaused} onClick={()=>setTurnPaused(v=>!v)}>{turnPaused?'▶ Продолжить':'Ⅱ Пауза'}</button>
+            <button onClick={()=>{if(frameIndex===frames.length-1)finishTurn();else setFrameIndex(i=>i+1);}}>Дальше →</button>
+            <button onClick={finishTurn}>Пропустить всё</button>
+          </div>
         </div>
       )}
       {menu && (
@@ -1141,7 +1168,8 @@ export default function App(): JSX.Element {
         </Modal>
       )}
       {victoryPending&&<CinematicOpening variant="victory" beforePlay={prepareVictoryMusic} onPlaybackChange={victoryPlayback} onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
-      {learning && <AssetBoundary fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось открыть обучение</h2><p>Основная партия сохранена. Попробуйте открыть обучение ещё раз.</p><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
+      {learning && <AssetBoundary key={schoolAttempt} fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось загрузить обучение</h2><p>Партия сохранена. Если игра обновилась, обновите страницу, чтобы получить новые файлы.</p><button onClick={()=>setSchoolAttempt(v=>v+1)}>Повторить загрузку</button><button onClick={()=>window.location.reload()}>Обновить игру</button><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
+      {assetUpdate&&!learning&&<div className="asset-update" role="status">Доступна новая версия. Партия сохранена. <button onClick={()=>window.location.reload()}>Обновить игру</button><button aria-label="Закрыть уведомление" onClick={()=>setAssetUpdate(false)}>×</button></div>}
       {restartOpen && (
         <Modal titleId="restart-title" onClose={closeRestart}>
           <h2 id="restart-title">Начать заново?</h2>

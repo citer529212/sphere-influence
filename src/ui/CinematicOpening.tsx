@@ -35,6 +35,7 @@ export function CinematicOpening({
 }): JSX.Element {
   const victory = variant === "victory";
   const [mobile]=useState(()=>compactDevice(deviceHints()));
+  const [standard,setStandard]=useState(false),[failed,setFailed]=useState(false);
   const video = useRef<HTMLVideoElement>(null),
     done = useRef(false),
     onDoneRef = useRef(onDone);
@@ -103,7 +104,7 @@ export function CinematicOpening({
     >
       <video
         ref={video}
-        src={victory ? (mobile?MOBILE_VICTORY_MOVIES:VICTORY_MOVIES)[faction] : (mobile?MOBILE_INTRO_MOVIES:INTRO_MOVIES)[faction]}
+        src={victory ? (mobile&&!standard?MOBILE_VICTORY_MOVIES:VICTORY_MOVIES)[faction] : (mobile&&!standard?MOBILE_INTRO_MOVIES:INTRO_MOVIES)[faction]}
         poster={victory ? VICTORY_POSTERS[faction] : INTRO_POSTER}
         preload="metadata"
         playsInline
@@ -126,14 +127,24 @@ export function CinematicOpening({
         onWaiting={() => setWaiting(true)}
         onEnded={finish}
         onError={() => {
-          if (!done.current) onUnavailable();
+          if(done.current)return;
+          if(mobile&&!standard){setStandard(true);return;}
+          if(victory){setFailed(true);setWaiting(false);onPlaybackChange?.(true);}
+          else onUnavailable();
         }}
+        onLoadedData={()=>{if(!reduced&&!done.current)void play();}}
       />
+      {failed&&<div className="victory-recovery" role="status">
+        <div className="victory-sparks" aria-hidden="true">✦ ✧ ✦<br/>✧ ⚑ ✧<br/>✦ ✧ ✦</div>
+        <h2>Победа {REALMS[faction].name}!</h2>
+        <p>Мир слушает вашу державу. Видео не загрузилось, но победа сохранена.</p>
+        <button onClick={()=>{setFailed(false);setStandard(true);video.current?.load();void play();}}>Повторить видео</button>
+      </div>}
       <div className="cinematic-top">
         <span>СФЕРЫ ВЛИЯНИЯ · {REALMS[faction].name}</span>
         <button onClick={finish}>Пропустить →</button>
       </div>
-      {paused && (
+      {paused && !failed && (
         <button
           className="cinematic-play"
           onClick={play}

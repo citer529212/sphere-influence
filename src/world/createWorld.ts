@@ -6,6 +6,7 @@ import { TapGesture } from './tapGesture';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FactionId } from '../game/types';
+import { REALMS } from '../game/realms';
 import { cityIndex,regionRole,worldLinks } from '../game/worlds';
 import { ActionEvent } from '../game/quickGame';
 import { Region } from '../game/types';
@@ -95,7 +96,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const node=new THREE.Group();node.position.set(center.x-1.65,ground,center.y-.6);
     const mastMat=material('#b4bdb2'),tower=new THREE.Mesh(new THREE.CylinderGeometry(.045,.15,2.15,6),mastMat);tower.position.y=1.075;tower.castShadow=true;node.add(tower);
     const dish=new THREE.Mesh(new THREE.SphereGeometry(.28,10,6,0,Math.PI*2,0,Math.PI/2),mastMat);dish.position.set(.1,1.8,0);dish.rotation.z=.75;node.add(dish);const beacon=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),new THREE.MeshBasicMaterial({color:'#ffe2a0'}));beacon.position.y=2.2;node.add(beacon);scene.add(node);
-    const label=document.createElement('button');label.className='world-city-label';label.textContent=region.name;const support=document.createElement('span');support.className='city-opinion';label.appendChild(support);const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
+    const label=document.createElement('button');label.className='world-city-label';const name=document.createElement('span');name.className='city-label-name';name.textContent=region.name;label.appendChild(name);const marker=document.createElement('span');marker.className='city-owner-marker';label.appendChild(marker);const support=document.createElement('span');support.className='city-opinion';label.appendChild(support);const badge=document.createElement('span');badge.className='city-action-badge';badge.hidden=true;label.appendChild(badge);label.setAttribute('aria-label',`Выбрать регион ${region.name}`);label.onclick=()=>callbacks.select(region.id);labelLayer.appendChild(label);
     visuals.push({id:region.id,center,ground,border,flag,ring,wave,node,label,support,controller:region.infoController,targetBorder:new THREE.Color(FACTION_COLORS[region.infoController]),targetFlag:new THREE.Color(FACTION_COLORS[region.infoController]),pulseStart:-10,badge,effectStart:-10,buildStart:-10});
   });
   initial.regions.forEach(region=>{const i=cityIndex(region);if([0,4,8].includes(i)||region.politicalOwner==='neutral'||regionRole(region)==='trade'){const port=harborModel(i);if(port)staticGroups.push(port);}});
@@ -118,6 +119,7 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     visuals.forEach(v=>{
       const region=next.regions.find(r=>r.id===v.id);if(!region)return;
       v.targetBorder.set(FACTION_COLORS[next.layer==='political'?region.politicalOwner:region.infoController]);v.targetFlag.set(FACTION_COLORS[region.infoController]);
+      const marker=v.label.querySelector<HTMLElement>('.city-owner-marker')!;marker.textContent=region.infoController==='contested'?'◇':REALMS[region.infoController].symbol;marker.style.background=FACTION_COLORS[region.infoController];
       const selected=next.selectedRegionId===v.id;v.ring.visible=selected;v.border.material.opacity=selected?.94:.58;v.node.visible=Object.values(region.mediaNodes).some(n=>n>0);
       v.label.classList.toggle('selected',selected);v.label.classList.toggle('outside-reach',!!next.reachableIds&&!next.reachableIds.includes(v.id));v.label.style.borderLeftColor=FACTION_COLORS[region.infoController];v.label.setAttribute('aria-pressed',String(selected));const view=opinion(region,next.player??'atlas');v.support.hidden=next.layer!=='information';v.support.textContent=`Вы ${view.support}% · ${view.controller==='contested'?'Спорный':view.controller===(next.player??'atlas')?'Лидируете':'Соперник'}`;v.label.classList.toggle('opinion-fragile',next.layer==='information'&&view.fragile);v.label.title=`${region.name} · ${view.status} · Ваша поддержка ${view.support}% · ${view.needed>0?`До лидерства +${view.needed}`:'Ваша повестка лидирует'}`;v.label.setAttribute('aria-label',`Выбрать ${v.label.title}`);
       if(v.controller!==region.infoController){
@@ -226,12 +228,13 @@ export function createWorld(container:HTMLDivElement,initial:WorldState,callback
     const updateLabels=currentTime-labelsAt>=(economy?.1:1/30);if(updateLabels)labelsAt=currentTime;
     visuals.forEach(v=>{
       const amount=1-Math.exp(-dt*4);v.border.material.color.lerp(v.targetBorder,amount);v.border.material.emissive.copy(v.border.material.color);v.flag.material.color.lerp(v.targetFlag,amount);
+      v.flag.quaternion.copy(camera.quaternion);v.flag.scale.setScalar(economy?1.6:1.15);
       const age=currentTime-v.pulseStart;
       if(!v.badge.hidden&&currentTime-v.effectStart>2.8)v.badge.hidden=true;
       const buildAge=currentTime-v.buildStart;v.node.scale.setScalar(reduced||buildAge>1?1:Math.max(.05,Math.min(1,buildAge*1.4)));
       if(v.wave.visible){v.wave.material.uniforms.progress.value=Math.max(0,Math.min(1,age/2));if(age>=2)v.wave.visible=false;}
       if(!reduced){const positions=v.flag.geometry.attributes.position;for(let i=0;i<positions.count;i++){const x=positions.getX(i);positions.setZ(i,Math.sin(currentTime*2.4+x*6+v.center.x)*x*.16);}positions.needsUpdate=true;}
-      if(updateLabels){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.left=`${(projected.x*.5+.5)*viewWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*viewHeight}px`;v.label.hidden=(economy&&v.id!==state.selectedRegionId&&!(state.actionEvent?.regionId===v.id&&currentTime-v.effectStart<2.8))||projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
+      if(updateLabels){projected.set(v.center.x,v.ground+.2,v.center.y+2).project(camera);v.label.style.left=`${(projected.x*.5+.5)*viewWidth}px`;v.label.style.top=`${(-projected.y*.5+.5)*viewHeight}px`;v.label.hidden=projected.z>1||projected.z< -1||Math.abs(projected.x)>.98||Math.abs(projected.y)>.96;}
     });
     if(messenger){const t=Math.min(1,(currentTime-messenger.start)/1.25);messenger.orb.position.copy(messenger.curve.getPoint(t));messenger.line.geometry.setDrawRange(0,Math.max(2,Math.floor(t*64)));messenger.line.material.opacity=1-t*.6;if(t===1)clearMessenger();}
     renderer.render(scene,camera);rendered++;
