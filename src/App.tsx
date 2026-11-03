@@ -9,6 +9,12 @@ import {
 } from "react";
 import { MapLoading } from "./components/MapLoading";
 import { AssetBoundary } from "./ui/AssetBoundary";
+import { CampaignChannel } from "./game/campaigns";
+import { launchCampaign } from "./game/quickGame";
+import { victoryProgress } from "./game/goals";
+import { actorIdentity,IndependentId,independentFor,INDEPENDENTS } from "./game/independents";
+import { negotiateIndependent } from "./game/quickGame";
+import { CHARACTERS } from "./game/characters";
 import { turnReadingTime } from "./ui/turnTiming";
 import { FACTIONS } from "./game/data";
 import {
@@ -67,7 +73,7 @@ import { CinematicOpening } from "./ui/CinematicOpening";
 import { victoryMovieKey, shouldShowVictory } from "./game/victory";
 import { Modal } from "./ui/Modal";
 import { WorldEvent } from "./ui/WorldEvent";
-import { RulesGuide } from "./ui/RulesGuide";
+
 import {
   challengeText,
   compareChallenge,
@@ -79,6 +85,10 @@ const WorldScene = lazy(() =>
 const ResultCard = lazy(() =>
   import("./ui/ResultCard").then((m) => ({ default: m.ResultCard })),
 );
+const RulesGuide=lazy(()=>import("./ui/RulesGuide").then(m=>({default:m.RulesGuide})));
+const CampaignPlanner=lazy(()=>import('./ui/CampaignPlanner'));
+const GoalsPanel=lazy(()=>import('./ui/GoalsPanel'));
+const IndependentPanel=lazy(()=>import('./ui/IndependentPanel'));
 const MusicPanel=lazy(()=>import("./ui/MusicPanel").then(m=>({default:m.MusicPanel})));
 const ACTION_ICONS = { media: "◈", attract: "⚑", protect: "◇" };
 const tutorial = [
@@ -135,6 +145,7 @@ export default function App(): JSX.Element {
   const [musicStatus,setMusicStatus]=useState<MusicStatus>('idle');
   const [music]=useState(()=>new MusicPlayer({status:setMusicStatus}));
   const [musicOpen,setMusicOpen]=useState(false);
+  const [hasInteracted,setHasInteracted]=useState(false);
   const [musicPreview,setMusicPreview]=useState<FactionId|null>(null);
   const [victoryMusicStarted,setVictoryMusicStarted]=useState<string|null>(null);
   const [victoryPlaying,setVictoryPlaying]=useState(false);
@@ -155,6 +166,12 @@ export default function App(): JSX.Element {
   const [mapStarted,setMapStarted]=useState(boot.restored);
   const [eventOpen, setEventOpen] = useState(false);
   const [learning, setLearning] = useState(false);
+  const [tacticTab,setTacticTab]=useState<'actions'|'operations'|'campaigns'>('actions');
+  const [diplomacy,setDiplomacy]=useState(false);
+  const [goals,setGoals]=useState(false);
+  const closeGoals=useCallback(()=>setGoals(false),[]);
+  const goalProgress=victoryProgress(game);
+  const closeDiplomacy=useCallback(()=>setDiplomacy(false),[]);
   const [schoolAttempt,setSchoolAttempt]=useState(0);
   const Tutorial=useMemo(()=>lazy(()=>import('./ui/Tutorial')),[schoolAttempt]);
   const [assetUpdate,setAssetUpdate]=useState(false);
@@ -175,6 +192,7 @@ export default function App(): JSX.Element {
   const [frames, setFrames] = useState<TurnFrame[]>([]),
     [frameIndex, setFrameIndex] = useState(0),
     busy = frames.length > 0;
+  const openGoals=()=>{if(busy)setTurnPaused(true);setGoals(true);};
   const [report, setReport] = useState<string[]>([]),
     [capture, setCapture] = useState<(() => string) | null>(null);
   const captureReady = useCallback(
@@ -220,7 +238,7 @@ export default function App(): JSX.Element {
   const threat = rivals
     .filter((r) => r.goal && (r.held > 0 || r.cities >= r.goal - 1))
     .sort((a, b) => b.held - a.held || b.cities - a.cities)[0];
-  const overlayOpen =
+  const overlayOpen = goals||diplomacy||
     learning ||
     musicOpen ||
     selection ||
@@ -304,19 +322,19 @@ export default function App(): JSX.Element {
   useEffect(()=>{const width=window.matchMedia('(max-width:700px)'),pointer=window.matchMedia('(pointer:coarse)');const update=()=>setCompact(compactDevice(deviceHints()));width.addEventListener('change',update);pointer.addEventListener('change',update);return()=>{width.removeEventListener('change',update);pointer.removeEventListener('change',update);};},[]);
   useEffect(()=>{
     if(musicDisposal.current!==null)clearTimeout(musicDisposal.current);
-    const gesture=()=>{void music.unlock();};
+    const gesture=()=>{setHasInteracted(true);void music.unlock();};
     const key=(event:KeyboardEvent)=>{if(!event.ctrlKey&&!event.metaKey&&!event.altKey)gesture();};
     const visible=()=>music.setHidden(document.hidden);
     document.addEventListener('pointerdown',gesture,{capture:true});
     document.addEventListener('keydown',key,{capture:true});
-    document.addEventListener('visibilitychange',visible);visible();
-    return ()=>{document.removeEventListener('pointerdown',gesture,true);document.removeEventListener('keydown',key,true);document.removeEventListener('visibilitychange',visible);musicDisposal.current=setTimeout(()=>music.dispose(),0);};
+    document.addEventListener('visibilitychange',visible);window.addEventListener('focus',visible);window.addEventListener('pageshow',visible);visible();
+    return ()=>{document.removeEventListener('pointerdown',gesture,true);document.removeEventListener('keydown',key,true);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',visible);window.removeEventListener('pageshow',visible);musicDisposal.current=setTimeout(()=>music.dispose(),0);};
   },[music]);
   useEffect(()=>{music.setPreferences(musicPreferences);saveMusicPreferences(boot.storage,musicPreferences);},[music,musicPreferences,boot.storage]);
   const musicVictoryKey=`${game.seed}:${game.player}:${game.difficulty}:${game.turn}`;
   const waitingVictory= victoryPending && victoryMusicStarted!==musicVictoryKey;
   const desiredMusic=musicForScreen(selection,musicPreview,player,game.result,busy,requiresRuler);
-  useEffect(()=>{music.setDucked(opening&&preferences.sound);music.setTheme(waitingVictory?null:desiredMusic);music.setHeld(victoryPending&&!waitingVictory&&!victoryPlaying);},[music,desiredMusic,opening,preferences.sound,waitingVictory,victoryPending,victoryPlaying]);
+  useEffect(()=>{music.setDucked(opening&&preferences.sound);music.setTheme(waitingVictory?null:desiredMusic);music.setHeld(victoryPending&&!waitingVictory&&!victoryPlaying&&!musicOpen);},[music,desiredMusic,opening,preferences.sound,waitingVictory,victoryPending,victoryPlaying,musicOpen]);
   const prepareVictoryMusic=useCallback(async()=>{
     await Promise.all([music.prepare(`victory-${player}`),new Promise<void>(resolve=>setTimeout(resolve,700))]);
   },[music,player]);
@@ -335,7 +353,7 @@ export default function App(): JSX.Element {
     setReport(
       frames
         .slice(0, -1)
-        .map((f) => `${REALMS[f.event.actor].name}: ${f.event.text}`),
+        .map((f) => `${actorIdentity(f.event.actor).name}: ${f.event.text}`),
     );
     setFrames([]);
     setTurnPaused(false);
@@ -516,7 +534,7 @@ export default function App(): JSX.Element {
   const eventTitle = worldEvent
     ? worldEvent.kind === "income"
       ? `Ход ${game.turn} · ${SEASONS[season(game.turn)]}`
-      : `${REALMS[worldEvent.actor].name} · ${worldEvent.kind === "opponent" ? "кампания" : worldEvent.kind === "blocked" ? "кампания сдержана" : worldEvent.kind === "event" ? "Ответ на событие" : QUICK_ACTIONS[worldEvent.kind].name}`
+      : `${actorIdentity(worldEvent.actor).name} · ${worldEvent.kind === "opponent" ? "кампания" : worldEvent.kind === "blocked" ? "кампания сдержана" : worldEvent.kind === "event" ? "Ответ на событие" : worldEvent.kind==='independent'?'собственный ход':worldEvent.kind==='campaign'?'этап кампании':QUICK_ACTIONS[worldEvent.kind].name}`
     : "";
   return (
     <div className={`game-shell ${compact?"is-compact":""}`}>
@@ -548,6 +566,7 @@ export default function App(): JSX.Element {
           </Suspense>
         </AssetBoundary>:<MapLoading regions={game.regions} onSelect={select}/>}
       </main>
+      {musicStatus==='blocked'&&musicPreferences.enabled&&musicPreferences.volume>0&&<button className="music-resume" onClick={()=>{music.setHidden(document.hidden);void music.unlock();}}>♫ Браузер приостановил музыку · включить</button>}
       <header className="game-hud">
         <div className="hud-brand">
           <button
@@ -581,15 +600,14 @@ export default function App(): JSX.Element {
         </div>
         <div className="hud-world">
           <button
-            onClick={() => setRules(true)}
-            disabled={busy}
-            title="Цель партии"
+            onClick={openGoals}
+            title="Цели и прогресс победы"
           >
             ⚑{" "}
             <strong>
               {cities}/{mode.goal}
             </strong>
-            <small>аудиторий</small>
+            <small>Цели · {goalProgress.overall}%</small>
           </button>
           <span key={`season-${game.turn}`} className="season-chip">
             {SEASONS[season(game.turn)]} · Ход {game.turn}/{mode.limit}
@@ -701,12 +719,16 @@ export default function App(): JSX.Element {
             ›
           </button>
         </div>
+        {game.accords?.[player]&&game.accords[player]!.expires>=game.turn&&<details className="active-accord"><summary>{CHARACTERS[game.accords[player]!.npc].symbol} {CHARACTERS[game.accords[player]!.npc].name} · {game.accords[player]!.npc==='editor'?'щиты выданы':`до хода ${game.accords[player]!.expires}`}</summary><p>{CHARACTERS[game.accords[player]!.npc].mechanic}</p></details>}
+        {independentFor(game,region.id)&&<button className="city-diplomacy" disabled={busy} onClick={()=>setDiplomacy(true)}>{INDEPENDENTS[independentFor(game,region.id)!.id].symbol} {INDEPENDENTS[independentFor(game,region.id)!.id].name} · переговоры</button>}
         <div className="city-summary" aria-live="polite">
           <span>Поддержка в городе <strong>{region.influence[player]}%</strong></span>
           <small>{region.infoController===player?'Вы лидируете':`До лидерства +${supportNeeded(region,player)}`}</small>
           <button aria-label="Чем поддержка отличается от доверия" onClick={()=>setRules(true)}>?</button>
         </div>
         <div id="city-commands" className="dock-body" hidden={collapsed}>
+          <nav className="tactic-tabs" aria-label="Средства информационного воздействия">{(['actions','operations','campaigns'] as const).map(id=><button key={id} aria-pressed={tacticTab===id} onClick={()=>setTacticTab(id)}>{id==='actions'?'Акции':id==='operations'?'Операции':'Кампании'}</button>)}</nav>
+          <p className="tactic-explainer">{tacticTab==='actions'?'Мгновенный инфоповод: быстрый рост поддержки, расход доверия и усталость аудитории.':tacticTab==='operations'?'Точечная работа: восстановите доверие, защитите аудиторию или расширьте медиасеть.':'Воздействие на 2–3 хода: выберите средства, сохраните охват и учитывайте реакцию аудитории.'}</p>
           <details className="city-specialty">
             <summary>
               {citySpecialty(game, region).name}
@@ -726,6 +748,7 @@ export default function App(): JSX.Element {
           >
             ◎ {reachDescription(game, region)}
           </p>
+          {(tacticTab==='actions'||(tacticTab==='campaigns'&&!game.activeCampaigns?.some(c=>c.actor===player)))&&<>
           <div
             className="topic-choices"
             role="group"
@@ -765,6 +788,7 @@ export default function App(): JSX.Element {
               <span> · инфоповод +{news.bonus}</span>
             )}
           </p>
+          </>}
           <div className="city-support">
             <span>
               Поддержка{" "}
@@ -790,7 +814,7 @@ export default function App(): JSX.Element {
             </small>
           </div>
           <div className="compact-actions">
-            {(Object.keys(QUICK_ACTIONS) as QuickAction[]).map((action) => {
+            {(Object.keys(QUICK_ACTIONS) as QuickAction[]).filter(action=>tacticTab==='actions'?action==='attract':tacticTab==='operations'?action!=='attract':false).map((action) => {
               const cost = actionCost(game, action),
                 reason = actionError(game, region, action);
               const effect =
@@ -822,7 +846,8 @@ export default function App(): JSX.Element {
               );
             })}
           </div>
-          {game.difficulty !== "discovery" && (
+          {tacticTab==='campaigns'&&<AssetBoundary fallback={<p>Не удалось загрузить планирование кампаний. Обновите игру; акции и операции доступны.</p>}><Suspense fallback={<p>Открываем кампании…</p>}><CampaignPlanner game={game} regionId={region.id} onLaunch={(channel:CampaignChannel)=>{if(busy)return;const next=launchCampaign(game,region.id,channel);if(next!==game){setGame(next);setWorldEvent({id:++eventCounter.current,kind:'campaign',campaignPhase:'launch',actor:player,regionId:region.id,amount:0,text:next.log[0]});void audio.play('select');}}}/></Suspense></AssetBoundary>}
+          {tacticTab==='operations'&&game.difficulty !== "discovery" && (
             <p className="network-growth">
               Редакции: {editorialCount}/3 ·{" "}
               {game.turn < 9
@@ -843,10 +868,9 @@ export default function App(): JSX.Element {
           </div>
         </div>
       </aside>
-      <div className="influence-victory" aria-live="polite">
-        Цель: {mode.goal} аудиторий · доверие ≥{mode.trust}% · удержание{" "}
-        {game.held}/{mode.hold}
-      </div>
+      <button className={`influence-victory goal-status ${goalProgress.warning?"goal-risk":""}`} onClick={openGoals} aria-label={`Открыть цели: ${goalProgress.overall}% выполнено`}>
+        Цели {goalProgress.overall}% · {cities}/{mode.goal} городов · удержание {game.held}/{mode.hold}{goalProgress.warning?" · ⚠ мало времени":""}
+      </button>
       <button
         className={`end-turn-dock ${step === 2 ? "tutorial-highlight" : ""}`}
         disabled={blocked || !!game.result}
@@ -869,6 +893,7 @@ export default function App(): JSX.Element {
         </button>
       )}
       <nav className="world-shortcuts" aria-label="События и правила">
+        <button aria-label="Независимые державы и дипломатия" disabled={busy} onClick={()=>setDiplomacy(true)}>⚓ <span>Дипломатия</span></button>
         <button
           aria-label="Открыть события"
           disabled={busy}
@@ -909,12 +934,12 @@ export default function App(): JSX.Element {
           key={worldEvent.id}
           style={
             {
-              "--event-color": REALMS[worldEvent.actor].color,
+              "--event-color": actorIdentity(worldEvent.actor).color,
             } as React.CSSProperties
           }
           role="status"
         >
-          <span>{REALMS[worldEvent.actor].symbol}</span>
+          <span>{actorIdentity(worldEvent.actor).symbol}</span>
           <div>
             <strong>{eventTitle}</strong>
             <p>{worldEvent.text}</p>
@@ -930,10 +955,10 @@ export default function App(): JSX.Element {
           </div>
           <span>
             {frameIndex < frames.length - 1
-              ? `Редакции: ${frameIndex + 1}/${frames.length - 1}`
+              ? `Действия держав: ${frameIndex + 1}/${frames.length - 1}`
               : "Ваш следующий ход"}
           </span>
-          <p className="turn-action-text">{frames[frameIndex]?.event.text}</p>
+          <p className="turn-action-text" role="status"><strong style={{color:actorIdentity(frames[frameIndex].event.actor).color}}>{actorIdentity(frames[frameIndex].event.actor).symbol} {actorIdentity(frames[frameIndex].event.actor).name}</strong><br/>{frames[frameIndex]?.event.text}</p>
           <div className="turn-buttons">
             <button aria-pressed={turnPaused} onClick={()=>setTurnPaused(v=>!v)}>{turnPaused?'▶ Продолжить':'Ⅱ Пауза'}</button>
             <button onClick={()=>{if(frameIndex===frames.length-1)finishTurn();else setFrameIndex(i=>i+1);}}>Дальше →</button>
@@ -941,6 +966,8 @@ export default function App(): JSX.Element {
           </div>
         </div>
       )}
+      {goals&&<AssetBoundary fallback={<Modal titleId="goals-error" onClose={closeGoals}><h2 id="goals-error">Цели партии</h2><p>{goalProgress.reason}</p><p>Города {cities}/{mode.goal} · доверие {game.trust}/{mode.trust}% · подтверждения {game.held}/{mode.hold}</p><button onClick={()=>window.location.reload()}>Обновить игру</button><button onClick={closeGoals}>К карте</button></Modal>}><Suspense fallback={<Modal titleId="goals-loading" onClose={closeGoals}><h2 id="goals-loading">Открываем цели…</h2><p>{goalProgress.reason}</p><button onClick={closeGoals}>К карте</button></Modal>}><GoalsPanel game={game} checkpointPending={busy} onClose={closeGoals}/></Suspense></AssetBoundary>}
+      {diplomacy&&<AssetBoundary fallback={<Modal titleId="diplomacy-error" onClose={closeDiplomacy}><h2 id="diplomacy-error">Не удалось загрузить дипломатию</h2><button onClick={()=>window.location.reload()}>Обновить игру</button><button onClick={closeDiplomacy}>К карте</button></Modal>}><Suspense fallback={<Modal titleId="diplomacy-loading" onClose={closeDiplomacy}><h2 id="diplomacy-loading">Открываем совет независимых…</h2><button onClick={closeDiplomacy}>К карте</button></Modal>}><IndependentPanel game={game} initialId={independentFor(game,region.id)?.id} onClose={closeDiplomacy} onChoose={(id:IndependentId)=>{const next=negotiateIndependent(game,id);if(next!==game){setGame(next);setDiplomacy(false);setWorldEvent({id:++eventCounter.current,kind:'event',actor:player,regionId:next.independents?.find(b=>b.id===id)?.cities[0],amount:0,text:next.log[0]});void audio.play('select');}}}/></Suspense></AssetBoundary>}
       {menu && (
         <Modal
           titleId="menu-title"
@@ -948,11 +975,13 @@ export default function App(): JSX.Element {
           className="settings-modal"
         >
           <h2 id="menu-title">Сферы влияния</h2>
+          <button onClick={()=>{setMenu(false);setGoals(true);}}>Цели · прогресс {goalProgress.overall}%</button>
+          <button onClick={()=>{setMenu(false);setDiplomacy(true);}}>Независимые державы · дипломатия</button>
           {game.result === "loss" && (
             <p>
               {game.winner
                 ? `Соперник удержал ${race?.goal} аудиторий ${race?.hold} хода при доверии ${game.rivalTrust[game.winner]}%. В следующей партии попробуйте раньше ослабить его лидерство.`
-                : "За отведённые ходы не удалось удержать нужное влияние и доверие."}
+                : goalProgress.reason}
             </p>
           )}
           <p>
@@ -961,7 +990,7 @@ export default function App(): JSX.Element {
             Карта {game.seed} · {mode.name} · Правила {RULESET_VERSION}
           </p>
           <div className="settings-buttons">
-            <button onClick={openLearning}>Подробное обучение · 22 этапа</button>
+            <button onClick={openLearning}>Подробное обучение · 25 этапов</button>
             <button onClick={() => {setMenu(false);setOpening(true);}}>Смотреть вступление</button>
             <button onClick={()=>setMusicOpen(true)}>Музыка · громкость и авторство</button>
             <button onClick={toggleSound}>
@@ -1019,7 +1048,7 @@ export default function App(): JSX.Element {
         </Modal>
       )}
       {rules && (
-        <RulesGuide
+        <AssetBoundary fallback={<Modal titleId="rules-load-error" onClose={closeRules}><h2 id="rules-load-error">Правила партии</h2><p>{goalProgress.reason}</p><button onClick={()=>window.location.reload()}>Обновить правила</button><button onClick={closeRules}>К карте</button></Modal>}><Suspense fallback={<Modal titleId="rules-loading" onClose={closeRules}><h2 id="rules-loading">Открываем правила…</h2><button onClick={closeRules}>К карте</button></Modal>}><RulesGuide
           onLearn={openLearning}
           game={game}
           onClose={closeRules}
@@ -1031,7 +1060,7 @@ export default function App(): JSX.Element {
                 ? `Вызов другу: победите за ${challenge.goal.turns} ходов. При равенстве сохраните больше ${challenge.goal.trust}% доверия.`
                 : undefined
           }
-        />
+        /></Suspense></AssetBoundary>
       )}
       {!selection && !opening && !introduction && (
         <button
@@ -1076,6 +1105,7 @@ export default function App(): JSX.Element {
                         : "Учебный режим: соперники не завершают партию"}
                     </p>
                     <p>
+                      {r.campaign&&<span className="rival-campaign">{r.campaign}<br/></span>}
                       {r.intent}
                       {r.target ? ` · ${r.target}` : ""}
                     </p>
@@ -1144,13 +1174,14 @@ export default function App(): JSX.Element {
             <p>
               {game.winner
                 ? `Соперник удержал ${race?.goal} аудиторий ${race?.hold} хода при доверии ${game.rivalTrust[game.winner]}%. В следующей партии попробуйте раньше ослабить его лидерство.`
-                : "За отведённые ходы не удалось удержать нужное влияние и доверие."}
+                : goalProgress.reason}
             </p>
           )}
           <p>
             {realm.ruler} · {cities} из {game.regions.length} городов · Ход {game.turn}{" "}
             · Доверие {game.trust}%
           </p>
+          <div className="result-goal-summary"><strong>Цели выполнены на {goalProgress.overall}%</strong>{goalProgress.gates.map(g=><p key={g.id}>{g.complete?'✓':'○'} {g.name}: {g.current}{g.id==='trust'?'% / ≥':' / '}{g.target}{g.id==='trust'?'%':''} · {g.percent}%{!g.complete?` · ${g.missing}`:''}</p>)}<button onClick={()=>{setResultOpen(false);setGoals(true);}}>Цели и подробная причина результата</button></div>
           {compareChallenge(game, challenge.goal) && (
             <p>{compareChallenge(game, challenge.goal)}</p>
           )}
@@ -1167,7 +1198,7 @@ export default function App(): JSX.Element {
           </div>
         </Modal>
       )}
-      {victoryPending&&<CinematicOpening variant="victory" beforePlay={prepareVictoryMusic} onPlaybackChange={victoryPlayback} onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
+      {victoryPending&&<CinematicOpening autoPlayAllowed={hasInteracted||!boot.restored} covered={musicOpen} variant="victory" beforePlay={prepareVictoryMusic} onPlaybackChange={victoryPlayback} onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishVictory} onUnavailable={finishVictory}/>}
       {learning && <AssetBoundary key={schoolAttempt} fallback={<Modal titleId="school-error" onClose={()=>closeLearning(false)}><h2 id="school-error">Не удалось загрузить обучение</h2><p>Партия сохранена. Если игра обновилась, обновите страницу, чтобы получить новые файлы.</p><button onClick={()=>setSchoolAttempt(v=>v+1)}>Повторить загрузку</button><button onClick={()=>window.location.reload()}>Обновить игру</button><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Suspense fallback={<Modal titleId="school-loading" onClose={()=>closeLearning(false)}><h2 id="school-loading">Открываем школу влияния…</h2><button onClick={()=>closeLearning(false)}>К игре</button></Modal>}><Tutorial player={player} onClose={closeLearning}/></Suspense></AssetBoundary>}
       {assetUpdate&&!learning&&<div className="asset-update" role="status">Доступна новая версия. Партия сохранена. <button onClick={()=>window.location.reload()}>Обновить игру</button><button aria-label="Закрыть уведомление" onClick={()=>setAssetUpdate(false)}>×</button></div>}
       {restartOpen && (
@@ -1189,8 +1220,8 @@ export default function App(): JSX.Element {
           onCancel={() => setSelection(false)}
         />
       )}
-      {opening && <Opening onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
-      {musicOpen && <AssetBoundary fallback={<Modal className="music-panel" titleId="music-error" onClose={closeMusic}><h2 id="music-error">Настройки музыки недоступны</h2><button onClick={closeMusic}>К игре</button></Modal>}><Suspense fallback={<Modal className="music-panel" titleId="music-loading" onClose={closeMusic}><h2 id="music-loading">Открываем музыку…</h2><button onClick={closeMusic}>К игре</button></Modal>}><MusicPanel value={musicPreferences} onChange={setMusicPreferences} status={musicStatus} onRetry={()=>{setMusicPreferences(p=>({...p,enabled:true}));void music.unlock();}} onClose={closeMusic}/></Suspense></AssetBoundary>}
+      {opening && <Opening covered={musicOpen} beforePlay={()=>music.prepare(player)} onMusic={()=>setMusicOpen(true)} faction={player} sound={preferences.sound} onSoundChange={sound=>setPreferences(p=>({...p,sound}))} onDone={finishOpening} />}
+      {musicOpen && <AssetBoundary fallback={<Modal className="music-panel" titleId="music-error" onClose={closeMusic}><h2 id="music-error">Настройки музыки недоступны</h2><button onClick={closeMusic}>К игре</button></Modal>}><Suspense fallback={<Modal className="music-panel" titleId="music-loading" onClose={closeMusic}><h2 id="music-loading">Открываем музыку…</h2><button onClick={closeMusic}>К игре</button></Modal>}><MusicPanel value={musicPreferences} onChange={setMusicPreferences} status={musicStatus} onRetry={()=>{setMusicPreferences(p=>({...p,enabled:true}));if(victoryPending)setVictoryMusicStarted(musicVictoryKey);void music.unlock();}} onClose={closeMusic}/></Suspense></AssetBoundary>}
     </div>
   );
 }

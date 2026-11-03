@@ -1,3 +1,5 @@
+import { DOCTRINES } from "../game/campaigns";
+import { victoryProgress } from "../game/goals";
 import { QuickState, controlled } from '../game/quickGame';
 import { MAP_LANDS } from '../world/mapContours';
 import { DIFFICULTIES } from '../game/information';
@@ -28,10 +30,11 @@ export async function makeResultCard(game:QuickState,capture:(()=>string)|null):
   let map:string|null=null;try{map=capture?.()??null;}catch{/* An illustrated map still produces a complete card. */}
   if(map){try{const image=new Image();image.src=map;await image.decode();ctx.drawImage(image,64,220,1072,410);}catch{fallbackMap(ctx,game);}}else fallbackMap(ctx,game);
   ctx.strokeStyle='#9caa8066';ctx.lineWidth=1;ctx.strokeRect(64,220,1072,410);
-  const stats=[{value:`${controlled(game)} / ${game.regions.length}`,label:'ГОРОДОВ НА ВАШЕЙ СТОРОНЕ'},{value:String(game.turn),label:'ХОДОВ'},{value:`${game.trust}%`,label:'ДОВЕРИЕ'}];
-  stats.forEach((stat,i)=>{const x=64+i*367;ctx.fillStyle='#f1e2b8';ctx.font='52px Georgia';ctx.fillText(stat.value,x,704);ctx.fillStyle='#9cb9ad';ctx.font='14px Trebuchet MS';ctx.fillText(stat.label,x,734);});
+  const goal=victoryProgress(game);
+  const stats=[{value:`${controlled(game)} / ${goal.target.goal}`,label:'АУДИТОРИЙ ДЛЯ ПОБЕДЫ'},{value:`${game.trust}% / ${goal.target.trust}%`,label:'ДОВЕРИЕ / ПОРОГ'},{value:`${game.held} / ${goal.target.hold}`,label:'ПОДТВЕРЖДЕНИЙ ПОДРЯД'},{value:`${game.turn} / ${goal.target.limit}`,label:'ХОД / ЛИМИТ'}];
+  stats.forEach((stat,i)=>{const x=64+i*274;ctx.fillStyle='#f1e2b8';fittedText(ctx,stat.value,x,704,250,42);ctx.fillStyle='#9cb9ad';ctx.font='12px Trebuchet MS';ctx.fillText(stat.label,x,734);});
   ctx.strokeStyle='#a89b6544';ctx.beginPath();ctx.moveTo(64,766);ctx.lineTo(1136,766);ctx.stroke();
-  ctx.fillStyle='#ecdba8';ctx.font='27px Georgia';ctx.fillText('Сможешь удержать информационное лидерство быстрее?',64,810);
-  ctx.fillStyle='#a9c5b9';fittedText(ctx,`${DIFFICULTIES[game.difficulty].name} · ${REALMS[game.player].ruler} · Код карты: ${game.seed}`,64,847,1072,19,'Trebuchet MS');
+  ctx.fillStyle='#ecdba8';fittedText(ctx,game.result==='win'?'Все три условия победы подтверждены':`Цели ${goal.overall}% · города ${controlled(game)}/${goal.target.goal} · доверие ${game.trust}/${goal.target.trust}% · удержание ${game.held}/${goal.target.hold}`,64,810,1072,25);
+  ctx.fillStyle='#a9c5b9';fittedText(ctx,`${DIFFICULTIES[game.difficulty].name} · ${REALMS[game.player].ruler} · ${DOCTRINES[game.player].name} · Код карты: ${game.seed}`,64,847,1072,19,'Trebuchet MS');
   return canvas.toDataURL('image/png');
 }

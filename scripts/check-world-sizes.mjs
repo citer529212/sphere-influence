@@ -5,7 +5,7 @@ const g=await import('data:text/javascript;base64,'+Buffer.from(bundled.outputFi
 const values=new Map([['spheres.session.v6:old:standard','old-data']]);
 const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)};
 const actors=['atlas','meridian','concordat'];
-for(const [difficulty,count,home,neutral,goal,limit] of [['discovery',10,3,1,6,16],['standard',16,4,4,10,24],['expert',22,6,4,14,36]]){
+for(const [difficulty,count,home,neutral,goal,limit] of [['discovery',12,3,3,6,16],['standard',16,4,4,10,24],['expert',28,6,10,16,36]]){
  for(const actor of actors){
   const state=g.createQuickGame('map-regression',actor,difficulty);
   assert.equal(state.regions.length,count);assert.equal(new Set(state.regions.map(r=>r.id)).size,count);
@@ -27,7 +27,7 @@ for(const [difficulty,count,home,neutral,goal,limit] of [['discovery',10,3,1,6,1
   const snapshot=JSON.stringify(state);g.quickEndTurn(state);assert.equal(JSON.stringify(state),snapshot,'Turn resolution must preserve input');
   const selected=state.regions.at(-1).id;assert.ok(g.saveSession(storage,state,selected));
   const restored=g.loadSession(storage,state.seed,difficulty);assert.deepEqual(restored.game,state);assert.equal(restored.selectedId,selected);
-  const key=`spheres.session.v7:${state.seed}:${difficulty}`,valid=values.get(key);
+  const key=`spheres.session.v10:${state.seed}:${difficulty}`,valid=values.get(key);
   for(const corrupt of [v=>v.game.regions.pop(),v=>v.game.regions[0].id='missing-city',v=>v.rules='6']){const v=JSON.parse(valid);corrupt(v);values.set(key,JSON.stringify(v));assert.equal(g.loadSession(storage,state.seed,difficulty),null);}
   values.set(key,valid);
   if(actor!=='atlas')continue;
@@ -49,4 +49,4 @@ const before=g.mediaReach(relayState);relay.mediaNodes.atlas=1;const after=g.med
 const start=relayState.regions.indexOf(relay),distance=new Map([[start,0]]),links=g.worldLinks(relayState);
 for(let hop=0;hop<3;hop++)for(const [a,b] of links){if(distance.get(a)===hop&&!distance.has(b))distance.set(b,hop+1);if(distance.get(b)===hop&&!distance.has(a))distance.set(a,hop+1);}
 assert.ok([...distance].some(([i,d])=>d===3&&!before.has(i)&&after.has(i)),'Relay must open a third-hop audience');
-console.log('World-size checks passed: nine ruler/map combinations, 10/16/22 cities, connected media graphs, stable climate/picking, isolated saves, immutable turns, three-hop relay and finite active-city models.');
+console.log('World-size checks passed: nine ruler/map combinations, 12/16/28 cities, connected media graphs, stable climate/picking, isolated saves, immutable turns, three-hop relay and finite active-city models.');

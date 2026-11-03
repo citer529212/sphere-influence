@@ -20,11 +20,12 @@ export function coastDistance(x:number,z:number):number {
   return best;
 }
 export function isNeutralLand(x:number,z:number):boolean {return polygons.some(p=>p.faction==='neutral'&&x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ&&polygonDistance(x,z,p)>0);}
-const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i])),...polygons.filter(p=>p.faction==='neutral')];
+const chosen=[...polygons.filter(p=>p.faction==='atlas').filter((_,i)=>[1,5,6,7].includes(i)),...([4,2,0,1].map(i=>polygons.filter(p=>p.faction==='meridian')[i])),...([5,4,0,3].map(i=>polygons.filter(p=>p.faction==='concordat')[i])),...polygons.filter(p=>p.faction==='neutral').slice(0,4)];
 const area=(poly:typeof polygons[number])=>Math.abs(poly.points.reduce((sum,a,i)=>{const b=poly.points[(i+1)%poly.points.length];return sum+a.x*b.y-b.x*a.y;},0));
 const extraChosen=(['atlas','meridian','concordat'] as const).flatMap(f=>polygons.filter(p=>p.faction===f&&!chosen.includes(p)).sort((a,b)=>area(b)-area(a)).slice(0,2));
-export const ALL_TERRITORIES=[...chosen,...extraChosen].map(p=>p.points);
-export const ALL_CITY_SITES=[...chosen,...extraChosen].map(poly=>{
+const frontier=polygons.filter(p=>p.faction==='neutral').slice(4);
+export const ALL_TERRITORIES=[...chosen,...extraChosen,...frontier].map(p=>p.points);
+export const ALL_CITY_SITES=[...chosen,...extraChosen,...frontier].map(poly=>{
   let best=new THREE.Vector2(),depth=-Infinity;
   for(let x=poly.minX;x<poly.maxX;x+=.3)for(let z=poly.minZ;z<poly.maxZ;z+=.3){const d=polygonDistance(x,z,poly);if(d>depth){depth=d;best.set(x,z);}}
   return best;

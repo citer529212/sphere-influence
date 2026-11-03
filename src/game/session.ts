@@ -11,6 +11,9 @@ import {
   rivalObjective,
 } from "./quickGame";
 
+import { CHANNELS } from "./campaigns";
+import { INDEPENDENT_IDS } from "./independents";
+import { CHARACTERS } from "./characters";
 import { DIFFICULTIES, DifficultyId, TOPICS } from "./information";
 
 export interface StorageLike {
@@ -19,8 +22,8 @@ export interface StorageLike {
 }
 export type Session = { game: QuickState; selectedId: string; savedAt: string };
 export type Preferences = { sound: boolean; tutorialStep: number };
-const PREFIX = "spheres.session.v7:";
-const LAST = "spheres.last.v7";
+const PREFIX = "spheres.session.v10:";
+const LAST = "spheres.last.v10";
 const PREFS = "spheres.preferences.v1";
 const validSeed = (seed: unknown): seed is string =>
   typeof seed === "string" && /^[a-zA-Z0-9-]{1,40}$/.test(seed);
@@ -190,6 +193,30 @@ export function loadSession(
       !([null, ...factions] as unknown[]).includes(saved.winner)
     )
       return null;
+    if(!Array.isArray(saved.activeCampaigns)||saved.activeCampaigns.length>3)return null;
+    const busyActors=new Set<string>();
+    for(const c of saved.activeCampaigns){
+      if(!object(c)||!factions.includes(c.actor as typeof factions[number])||!Object.hasOwn(CHANNELS,String(c.channel))||!Object.hasOwn(TOPICS,String(c.topic))||!game.regions.some(r=>r.id===c.regionId)||!integer(c.started,1,Number(saved.turn))||!integer(c.stage,0,CHANNELS[c.channel as keyof typeof CHANNELS].duration-1)||c.stage>Number(saved.turn)-c.started+1||busyActors.has(String(c.actor))||c.id!==`${c.actor}:${c.started}:${c.regionId}:${c.channel}`)return null;
+      busyActors.add(String(c.actor));game.activeCampaigns!.push(c as unknown as NonNullable<QuickState['activeCampaigns']>[number]);
+    }
+    if(!Array.isArray(saved.independents)||saved.independents.length!==game.independents!.length)return null;
+    for(let i=0;i<game.independents!.length;i++){
+      const source:unknown=saved.independents[i],target=game.independents![i];
+      if(!object(source)||source.id!==target.id||!INDEPENDENT_IDS.includes(source.id as typeof INDEPENDENT_IDS[number])||JSON.stringify(source.cities)!==JSON.stringify(target.cities)||!integer(source.budget,0,30)||!integer(source.level,0,2)||!object(source.relations)||!object(source.pacts)||!object(source.lastContact))return null;
+      for(const actor of factions){
+        const relation=source.relations[actor],until=source.pacts[actor],contact=source.lastContact[actor];
+        if(!integer(relation,0,75)||!integer(until,0,QUICK_LIMIT+3)||!integer(contact,0,Number(saved.turn))||Number(until)>Number(saved.turn)+3||(until!==0&&until!==Number(contact)+3))return null;
+        target.relations[actor]=relation;target.pacts[actor]=until;target.lastContact[actor]=contact;
+      }
+      target.budget=source.budget;target.level=source.level;
+    }
+    if(saved.accords!==undefined){
+      if(!object(saved.accords)||Object.keys(saved.accords).some(key=>!factions.includes(key as typeof factions[number])))return null;
+      for(const actor of factions){const a=saved.accords[actor];if(a===undefined)continue;
+        if(!object(a)||!Object.hasOwn(CHARACTERS,String(a.npc))||!game.regions.some(r=>r.id===a.regionId)||!integer(a.expires,1,QUICK_LIMIT+2)||a.expires>Number(saved.turn)+2)return null;
+        game.accords![actor]={npc:a.npc as keyof typeof CHARACTERS,regionId:a.regionId as string,expires:a.expires};
+      }
+    }
     game.eventTurn = saved.eventTurn;
     game.winner = saved.winner as typeof game.winner;
     for (const faction of factions) {

@@ -1,5 +1,8 @@
+import { CampaignChannel } from "./campaigns";
+import { IndependentId } from "./independents";
+import { actorIdentity } from "./independents";
 import { FactionId } from "./types";
-import { FACTION_IDS, REALMS } from "./realms";
+import { FACTION_IDS } from "./realms";
 import { CITY_TOPICS, CITY_ROLES, TopicId } from "./information";
 import {
   QuickState,
@@ -16,6 +19,8 @@ import {
   planQuickEndTurn,
   decisionLimit,
   objective,
+  negotiateIndependent,
+  launchCampaign,
 } from "./quickGame";
 
 export type Lesson = {
@@ -25,6 +30,9 @@ export type Lesson = {
   explanation: string[];
   task: string;
   kind:
+    | "longCampaign"
+    | "diplomacy"
+    | "goals"
     | "select"
     | "topic"
     | "campaign"
@@ -51,7 +59,7 @@ export const LESSONS: Lesson[] = [
     kind: "select",
     explanation: [
       "Вы управляете информационным влиянием, а не армией. В этом учебном примере 16 городов: три державы и независимые серые острова. Выбор города сам по себе не расходует решения.",
-      "В основной игре нажимайте на город или переключайте его справа. WASD и стрелки двигают камеру, Shift ускоряет в 2,5 раза, колесо меняет масштаб. На телефоне: один палец — вращение, два — масштаб.",
+      "В основной игре нажимайте на город или переключайте его справа. WASD и стрелки двигают камеру, Shift ускоряет в 2,5 раза, колесо меняет масштаб. На телефоне: один палец — сдвиг, два — масштаб и поворот.",
       "В учебной карте ниже используются те же города и правила. Все изменения здесь учебные.",
     ],
     task: "Выберите любой другой город на учебной карте.",
@@ -237,9 +245,11 @@ export const LESSONS: Lesson[] = [
     title: "События и выбор последствий",
     kind: "event",
     explanation: [
+      "Независимые державы ходят после корон: торгуют, проверяют источники, поддерживают слабые голоса через авторов и локальные сообщества. Кнопка «Дипломатия» показывает их казну, намерения и договоры. Соглашение стоит 4 медиаресурса и одно решение, действует четыре хода.",
       "Каждый четвёртый ход появляется событие с тремя ответами. Сначала нужно выбрать ответ, затем можно проводить обычные действия.",
       "Выбор события не расходует решения, но может менять ресурс, доверие, поддержку и усталость. Ответ с расходом недоступен без нужного ресурса.",
       "Числа показаны до выбора. Поддержка меняется в указанном городе; доверие и ресурс относятся к державе. Ответ нельзя повторять после перезагрузки.",
+      "Сафия Ветер открывает удалённую аудиторию и соседей на три хода. Ильна Соль на три хода снимает штраф повторной темы, но не усталость. Марк Север выдаёт щиты во всех городах вашего лидерства: каждый щит срабатывает один раз. Все трое — неигровые персонажи; соперники тоже могут заключать соглашения.",
     ],
     task: "Выберите один из ответов и сравните фактические последствия.",
   },
@@ -280,9 +290,9 @@ export const LESSONS: Lesson[] = [
     title: "Сложности и темп партии",
     kind: "quiz",
     explanation: [
-      "«Знакомство»: карта на 10 городов, цель — 6, доверие 35%, удержание 1 ход, лимит 16. Соперники не побеждают по гонке.",
+      "«Знакомство»: карта на 12 городов, цель — 6, доверие 35%, удержание 1 ход, лимит 16. Соперники не побеждают по гонке.",
       "Стандарт: карта на 16 городов, цель — 10, доверие 45%, удержание 2 хода, лимит 24. Соперникам достаточно 7 городов.",
-      "Эксперт: карта на 22 города, цель — 14, доверие 50%, удержание 2 хода, лимит 36. Каждый соперник делает два решения; его цель — 11 городов. Сохранения сложностей раздельны.",
+      "Эксперт: карта на 28 городов, цель — 16, доверие 50%, удержание 2 хода, лимит 36. Каждый соперник делает два решения; его цель — 11 городов. Сохранения сложностей раздельны.",
     ],
     task: "Проверьте понимание экспертного режима.",
     quiz: {
@@ -341,6 +351,21 @@ export const LESSONS: Lesson[] = [
     },
   },
   {
+    id:"diplomacy-practice",group:"Независимые державы",title:"Соглашение и ответ независимой державы",kind:"diplomacy",
+    explanation:["Серые острова не ждут захвата: они самостоятельно торгуют, расследуют кампании и защищают свою повестку.","Заключите договор с Лигой платформ. Это стоит 4 ресурса и одно решение. Затем пошагово посмотрите её собственный ход и новый доход: условия договора не делают вас владельцем города."],
+    task:"Заключите соглашение с портами, завершите учебный ход и просмотрите ответы до начисления дохода."
+  },
+  {
+    id:"goal-streak",group:"Цели и победа",title:"Почему города ещё не означают победу",kind:"goals",
+    explanation:["Города и доверие в примере уже достигнуты, но подтверждений пока 0/2. Откройте цели и сравните три шкалы.","Получите первое подтверждение, завершив ход и посмотрев все ответы. Победы ещё нет. Повторите полный ход: только после второго подтверждения подряд игра засчитает победу."],
+    task:"Откройте учебные цели и получите два подтверждения подряд, пошагово разобрав ответные действия."
+  },
+  {
+    id:"campaign-practice",group:"Информационное противостояние",title:"Акция, операция и длительная кампания",kind:"longCampaign",
+    explanation:["Акции действуют сразу. Операции защищают аудитории и медиасеть. Кампании продолжаются несколько ходов: новостная сеть, вирусный эфир или локальные сообщества.","Тема фиксируется при запуске. Запустите трёхэтапную работу с сообществами. Каждый этап срабатывает после ответов, восстанавливает доверие и снижает усталость. Последний даёт щит. У каждой короны своя специализация: Атлас — новостная сеть, Меридиан — первый вирусный импульс, Конкорданс — сообщества."],
+    task:"Запустите кампанию сообществ и проведите три учебных хода, просматривая каждый этап до конца."
+  },
+  {
     id: "finish",
     group: "Итог",
     title: "Ваш первый план партии",
@@ -365,6 +390,9 @@ export const LESSONS: Lesson[] = [
 ];
 
 export type Practice = {
+  lessonId:string;
+  campaignLaunched:boolean;
+  campaignTicks:number;
   game: QuickState;
   selected: string;
   initial: string;
@@ -377,6 +405,9 @@ export type Practice = {
   topicChosen: boolean;
   eventChosen: boolean;
   feedback: string;
+  goalsOpened:boolean;
+  diplomacyDone:boolean;
+  independentSeen:boolean;
 };
 export function createPractice(id: string, player: FactionId): Practice {
   const game = createQuickGame("school-v1-" + id, player, "standard");
@@ -450,8 +481,16 @@ export function createPractice(id: string, player: FactionId): Practice {
     }
   }
   for (const r of game.regions) r.infoController = regionController(r);
+  if(id==='diplomacy-practice')focus=game.regions.findIndex(r=>r.politicalOwner==='neutral');
+  if(id==='goal-streak'){
+    game.turn=21;game.eventTurn=20;game.trust=80;game.held=0;game.rivalBudget={atlas:0,meridian:0,concordat:0};
+    for(const r of game.regions.slice(0,objective(game).goal)){r.influence={atlas:0,meridian:0,concordat:0};r.influence[player]=100;r.infoController=player;}
+  }
+  if(id==='campaign-practice'){game.turn=17;game.eventTurn=16;game.trust=70;game.rivalBudget={atlas:0,meridian:0,concordat:0};}
   const selected = game.regions[focus].id;
   return {
+    lessonId:id,
+    campaignLaunched:false,campaignTicks:0,
     game,
     selected,
     initial: selected,
@@ -462,12 +501,16 @@ export function createPractice(id: string, player: FactionId): Practice {
     finishedTurn: false,
     selectedOther: false,
     topicChosen: false,
+    goalsOpened:false,diplomacyDone:false,independentSeen:false,
     eventChosen: false,
     feedback:
       "Учебный пример подготовлен. Ресурсы основной партии не расходуются.",
   };
 }
 export type PracticeEvent =
+  | {type:"campaign";channel:CampaignChannel}
+  | { type:"goals" }
+  | { type:"diplomacy";id:IndependentId }
   | { type: "select"; id: string }
   | { type: "topic"; topic: TopicId }
   | { type: "action"; action: QuickAction }
@@ -482,7 +525,10 @@ export function practiceStep(
   const s = { ...current },
     before = s.game,
     region = before.regions.find((r) => r.id === s.selected)!;
-  if (s.frames.length && event.type !== "frame") return current;
+  if (s.frames.length && event.type !== "frame" && event.type!=="goals") return current;
+  if(event.type==='campaign'){s.game=launchCampaign(before,s.selected,event.channel);if(s.game===before)return current;s.campaignLaunched=true;s.feedback='Кампания запущена. Теперь проведите три хода: эффект начисляется по этапам, а не сразу.';return s;}
+  if(event.type==='goals'){s.goalsOpened=true;s.feedback=`Города и доверие сравнивайте отдельно от удержания: сейчас ${s.game.held}/${objective(s.game).hold} подтверждений. Процент целей растёт только по действительным условиям.`;return s;}
+  if(event.type==='diplomacy'){s.game=negotiateIndependent(before,event.id);if(s.game===before)return current;s.diplomacyDone=true;s.feedback=`Соглашение заключено: ресурс ${before.influence} → ${s.game.influence}, решения ${before.actions} → ${s.game.actions}. Теперь завершите ход и посмотрите собственное действие портов.`;return s;}
   if (event.type === "select") {
     if (!before.regions.some((r) => r.id === event.id)) return current;
     s.selected = event.id;
@@ -516,6 +562,9 @@ export function practiceStep(
     return s;
   }
   if (event.type === "turn") {
+    if(s.lessonId==='campaign-practice'&&!s.campaignLaunched)return {...s,feedback:'Сначала запустите учебную кампанию.'};
+    if(s.lessonId==='goal-streak'&&!s.goalsOpened)return {...s,feedback:'Сначала откройте учебные цели и сравните три шкалы.'};
+    if(s.lessonId==='diplomacy-practice'&&!s.diplomacyDone)return {...s,feedback:'Сначала заключите соглашение с Лигой платформ.'};
     if (pendingWorldEvent(before) || before.result) return current;
     s.frames = planQuickEndTurn(before);
     s.frame = 0;
@@ -528,7 +577,9 @@ export function practiceStep(
     const frame = s.frames[s.frame];
     if (!frame) return current;
     s.game = frame.state;
-    s.feedback = `${REALMS[frame.event.actor].name}: ${frame.event.text}`;
+    if(frame.event.kind==='campaign'&&frame.event.campaignPhase==='tick'&&frame.event.actor===before.player)s.campaignTicks++;
+    if(frame.event.kind==='independent')s.independentSeen=true;
+    s.feedback = `${actorIdentity(frame.event.actor).name}: ${frame.event.text}`;
     if (s.frame === s.frames.length - 1) {
       s.frames = [];
       s.frame = 0;
@@ -542,6 +593,9 @@ export function practiceComplete(lesson: Lesson, s: Practice): boolean {
   const r = s.game.regions.find((r) => r.id === s.selected)!,
     player = s.game.player;
   switch (lesson.kind) {
+    case 'longCampaign':return s.campaignLaunched&&s.campaignTicks>=3&&s.finishedTurn&&!s.game.activeCampaigns?.some(c=>c.actor===s.game.player);
+    case "diplomacy":return s.diplomacyDone&&s.independentSeen&&s.finishedTurn;
+    case "goals":return s.goalsOpened&&s.finishedTurn&&s.game.result==='win';
     case "select":
       return s.selectedOther;
     case "topic":

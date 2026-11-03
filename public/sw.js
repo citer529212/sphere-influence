@@ -1,5 +1,5 @@
 // Scope caches to this game; never clear other projects on the same Pages origin.
-const CACHE='sphere-influence-0.18.1-rules7';
+const CACHE='sphere-influence-0.21.0-rules10';
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
     // Cache every versioned screen before replacing the previous worker.

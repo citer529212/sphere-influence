@@ -3,14 +3,14 @@ export type TopicId = "development" | "freedoms" | "stability";
 export const DIFFICULTIES = {
   discovery: {
     name: "Знакомство",
-    cities: 10,
+    cities: 12,
     goal: 6,
     limit: 16,
     hold: 1,
     trust: 35,
     aiActions: 1,
     aiGain: 6,
-    description: "Освойте кампании и медиасеть. Соперники отвечают мягко.",
+    description: "12 городов и три независимые силы. Освойте акции, операции и кампании; короны отвечают мягко.",
   },
   standard: {
     name: "Борьба повесток",
@@ -22,19 +22,19 @@ export const DIFFICULTIES = {
     aiActions: 1,
     aiGain: 8,
     description:
-      "Соперники развивают медиа и защищают аудиторию. Лидерство нужно удержать.",
+      "Соперники ведут длительные кампании. Управляйте повесткой, охватом и доверием.",
   },
   expert: {
     name: "Информационный шторм",
-    cities: 22,
-    goal: 14,
+    cities: 28,
+    goal: 16,
     limit: 36,
     hold: 2,
     trust: 50,
     aiActions: 2,
     aiGain: 5,
     description:
-      "По два решения у каждого соперника. Борьба за охват, доверие и устойчивое лидерство.",
+      "28 городов и два решения у соперников. Три доктрины, контроперации и борьба за устойчивое лидерство.",
   },
 } as const;
 export const TOPICS = {
@@ -72,6 +72,7 @@ export const CITY_TOPICS: TopicId[] = [
   "freedoms",
   "stability",
   "stability", "development", "stability", "development", "stability", "freedoms",
+  "freedoms","stability","freedoms","development","stability","development"
 ];
 export const CITY_ROLES = [
   "civic",
@@ -91,7 +92,7 @@ export const CITY_ROLES = [
   "university",
   "civic",
   "relay", "trade", "relay", "university", "relay", "independent",
-] as const;
+  "trade","civic","independent","relay","civic","trade"] as const;
 export const CITY_SPECIALTIES = {
   relay:{name:"Межматериковый ретранслятор",description:"При лидерстве работающая редакция расширяет охват до трёх связей вместо двух.",income:1,support:2,trust:0},
   civic: {

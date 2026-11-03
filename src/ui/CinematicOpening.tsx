@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { playVideo,videoFinished } from "./mediaPlayback";
 import { compactDevice,deviceHints } from '../device';
 import { MOBILE_INTRO_MOVIES,MOBILE_VICTORY_MOVIES } from './mobileCinematicAssets';
 import { FactionId } from "../game/types";
@@ -22,7 +23,11 @@ export function CinematicOpening({
   beforePlay,
   onPlaybackChange,
   onMusic,
+  covered=false,
+  autoPlayAllowed=true,
 }: {
+  covered?:boolean;
+  autoPlayAllowed?:boolean;
   variant?: "opening" | "victory";
   beforePlay?:()=>Promise<void>;
   onPlaybackChange?:(playing:boolean)=>void;
@@ -35,7 +40,9 @@ export function CinematicOpening({
 }): JSX.Element {
   const victory = variant === "victory";
   const [mobile]=useState(()=>compactDevice(deviceHints()));
-  const [standard,setStandard]=useState(false),[failed,setFailed]=useState(false);
+  const [standard,setStandard]=useState(false),[failed,setFailed]=useState(false),[slow,setSlow]=useState(false);
+  const failedRef=useRef(false);
+  const wantsPlay=useRef(false),coveredRef=useRef(covered);coveredRef.current=covered;
   const video = useRef<HTMLVideoElement>(null),
     done = useRef(false),
     onDoneRef = useRef(onDone);
@@ -53,44 +60,26 @@ export function CinematicOpening({
     onPlaybackChange?.(false);
     onDoneRef.current();
   }, []);
-  const preparing=useRef(false),lifecycle=useRef(0);
-  const play = async () => {
-    if(preparing.current||done.current)return;
-    const epoch=lifecycle.current;
-    preparing.current=true;
-    if(beforePlay) await Promise.race([beforePlay().catch(()=>undefined),new Promise(resolve=>setTimeout(resolve,2000))]);
-    if(epoch!==lifecycle.current||done.current)return;
-    preparing.current=false;
-    const element = video.current;
-    if (!element) return;
-    setWaiting(true);
-    void element
-      .play()
-      .then(() => {
-        setPaused(false);
-        setWaiting(false);
-      })
-      .catch(() => {
-        setPaused(true);
-        onPlaybackChange?.(false);
-        setWaiting(false);
-      });
+  const preparing=useRef(false),lifecycle=useRef(0),attempt=useRef(0);
+  const play = (manual=false) => {
+    if((preparing.current&&!manual)||done.current||coveredRef.current||document.hidden||(failedRef.current&&!manual))return;
+    const element=video.current;if(!element)return;
+    const epoch=lifecycle.current,ticket=++attempt.current;
+    const current=()=>epoch===lifecycle.current&&ticket===attempt.current&&!done.current&&!coveredRef.current&&!document.hidden;
+    wantsPlay.current=true;preparing.current=true;setWaiting(true);setSlow(false);
+    void playVideo(element,beforePlay,current,manual).then(()=>{if(!current())return;preparing.current=false;setPaused(element.paused);setWaiting(false);}).catch(()=>{if(!current())return;preparing.current=false;setPaused(true);if(!failedRef.current)onPlaybackChange?.(false);setWaiting(false);});
   };
   useEffect(() => {
-    const element = video.current;
-    if (!element) return;
-    lifecycle.current++;done.current=false;preparing.current=false;
-    if (!reduced) void play();
-    const visibility = () => {
-      if (document.hidden) element.pause();
-    };
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("visibilitychange", visibility);
-      lifecycle.current++;done.current=true;preparing.current=false;
-      element.pause();
-    };
-  }, [faction, reduced]);
+    const element=video.current;if(!element)return;
+    lifecycle.current++;done.current=false;preparing.current=false;wantsPlay.current=!reduced&&autoPlayAllowed;
+    if(!autoPlayAllowed&&beforePlay)void beforePlay().catch(()=>undefined);
+    if(!reduced&&autoPlayAllowed&&!coveredRef.current)play();
+    const visibility=()=>{if(document.hidden){attempt.current++;preparing.current=false;setWaiting(false);element.pause();}else if(wantsPlay.current&&!coveredRef.current&&element.paused&&!element.ended&&!done.current)play();};
+    document.addEventListener('visibilitychange',visibility);window.addEventListener('focus',visibility);window.addEventListener('pageshow',visibility);
+    return()=>{document.removeEventListener('visibilitychange',visibility);window.removeEventListener('focus',visibility);window.removeEventListener('pageshow',visibility);lifecycle.current++;attempt.current++;done.current=true;preparing.current=false;element.pause();};
+  },[faction,reduced]);
+  useEffect(()=>{if(covered){attempt.current++;preparing.current=false;setWaiting(false);video.current?.pause();}else if(wantsPlay.current&&!document.hidden&&video.current?.paused&&!video.current.ended&&!done.current)play();},[covered]);
+  useEffect(()=>{if(!waiting||failed)return;const timer=setTimeout(()=>setSlow(true),12000);return()=>clearTimeout(timer);},[waiting,failed]);
   const captions = [
     "Три короны спорили о будущем мира…",
     "Карта разделена. Борьба за доверие только начинается.",
@@ -123,22 +112,22 @@ export function CinematicOpening({
           setPaused(false);
           setWaiting(false);
         }}
-        onPause={() => {setPaused(true);onPlaybackChange?.(false);}}
+        onPause={() => {setPaused(true);if(!failedRef.current&&!coveredRef.current)onPlaybackChange?.(false);}}
         onWaiting={() => setWaiting(true)}
-        onEnded={finish}
+        onEnded={event=>{if(videoFinished(event.currentTarget.currentTime,event.currentTarget.duration))finish();}}
         onError={() => {
           if(done.current)return;
           if(mobile&&!standard){setStandard(true);return;}
-          if(victory){setFailed(true);setWaiting(false);onPlaybackChange?.(true);}
+          if(victory){attempt.current++;preparing.current=false;failedRef.current=true;setFailed(true);setWaiting(false);onPlaybackChange?.(true);}
           else onUnavailable();
         }}
-        onLoadedData={()=>{if(!reduced&&!done.current)void play();}}
+        onLoadedData={()=>{if(wantsPlay.current&&!reduced&&!done.current)play();}}
       />
       {failed&&<div className="victory-recovery" role="status">
         <div className="victory-sparks" aria-hidden="true">✦ ✧ ✦<br/>✧ ⚑ ✧<br/>✦ ✧ ✦</div>
         <h2>Победа {REALMS[faction].name}!</h2>
         <p>Мир слушает вашу державу. Видео не загрузилось, но победа сохранена.</p>
-        <button onClick={()=>{setFailed(false);setStandard(true);video.current?.load();void play();}}>Повторить видео</button>
+        <button onClick={()=>{failedRef.current=false;setFailed(false);setStandard(true);video.current?.load();play(true);}}>Повторить видео</button>
       </div>}
       <div className="cinematic-top">
         <span>СФЕРЫ ВЛИЯНИЯ · {REALMS[faction].name}</span>
@@ -147,7 +136,7 @@ export function CinematicOpening({
       {paused && !failed && (
         <button
           className="cinematic-play"
-          onClick={play}
+          onClick={()=>play(true)}
           data-autofocus
           aria-label={
             victory
@@ -165,9 +154,9 @@ export function CinematicOpening({
           </span>
         </button>
       )}
-      {waiting && !paused && (
+      {waiting && !failed && (
         <p className="cinematic-loading" role="status">
-          Загружаем видео…
+          {slow?<>Загрузка задерживается. <button onClick={()=>{video.current?.load();play(true);}}>Повторить запуск</button></>:"Загружаем видео…"}
         </p>
       )}
       <div className="cinematic-bottom">
@@ -186,8 +175,8 @@ export function CinematicOpening({
         <div className="cinematic-controls">
           <button
             onClick={() => {
-              if (paused) play();
-              else video.current?.pause();
+              if (paused) play(true);
+              else {wantsPlay.current=false;video.current?.pause();}
             }}
             aria-label={paused ? "Продолжить видео" : "Пауза"}
           >

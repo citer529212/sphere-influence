@@ -10,7 +10,10 @@ import {
   TOPICS,
 } from "./information";
 import { cityIndex,cityOwner,regionTopic,regionRole,worldFor,worldLinks,WORLD_IDS,WORLD_NAMES } from "./worlds";
-import { WORLD_EVENTS, EventOption } from "./events";
+import { EventOption } from "./events";
+import { ActiveCampaign,CampaignChannel,CHANNELS,DOCTRINES,applyCampaign,campaignError as channelError,advanceCampaigns } from "./campaigns";
+import { IndependentState,ActorId,createIndependents,independentIncome,independentReach,advanceIndependents,applyDiplomacy,INDEPENDENT_IDS } from "./independents";
+import { Accord,characterEvent } from "./characters";
 export type QuickAction = "media" | "attract" | "protect";
 export type CampaignMemory = { topic: TopicId; repeats: number };
 export type QuickState = {
@@ -27,33 +30,36 @@ export type QuickState = {
   rivalTrust: Record<FactionId, number>;
   campaigns: Record<string, CampaignMemory>;
   eventTurn: number;
+  independents?:IndependentState[];
+  activeCampaigns?:ActiveCampaign[];
+  accords?:Partial<Record<FactionId,Accord>>;
   rivalHeld: Record<FactionId, number>;
   winner: FactionId | null;
   regions: Region[];
   log: string[];
   result: "win" | "loss" | null;
 };
-export const RULESET_VERSION = "7",
+export const RULESET_VERSION = "10",
   NEUTRAL_SUPPORT = 55;
 // Upper bounds for validation; actual objectives come from the selected difficulty.
 export const QUICK_LIMIT = 36;
 export const QUICK_ACTIONS = {
   media: {
-    name: "Медиацентр",
+    name: "Операция: медиасеть",
     cost: 5,
     description:
       "Редакция приносит доход, укрепляет поддержку и расширяет охват до двух связей. Торговые узлы и независимые редакции дают дополнительный бонус.",
     effect: "Доход, охват и устойчивая аудитория",
   },
   attract: {
-    name: "Инфокампания",
+    name: "Акция: инфоповод",
     cost: 3,
     description:
       "Тема под местную повестку даёт +5 поддержки. Доверие, охват, информационный повод и усталость меняют результат.",
     effect: "Борьба за поддержку аудитории",
   },
   protect: {
-    name: "Проверка фактов",
+    name: "Операция: проверка",
     cost: 2,
     description:
       "Восстанавливает доверие, снижает усталость и защищает аудиторию от одного ответа соперника.",
@@ -82,7 +88,7 @@ export function createQuickGame(
   const all = createInitialState().regions,
     ids = worldFor(difficulty).indices;
   const regions = ids.map((index) => {
-    const id=WORLD_IDS[index],source=all.find(r=>r.id===id)??all.find(r=>r.id===WORLD_IDS[[0,4,8][Math.floor((index-16)/2)]]);
+    const id=WORLD_IDS[index],source=all.find(r=>r.id===id)??all.find(r=>r.id===WORLD_IDS[[0,4,8][Math.floor((index-16)/2)%3]]);
     const region=structuredClone(source!);region.id=id;if(WORLD_NAMES[id])region.name=WORLD_NAMES[id];
     const owner=cityOwner(index);region.politicalOwner=owner;region.infoController=owner==='neutral'?'contested':owner;
     region.influence={atlas:18,meridian:18,concordat:18};if(owner==='neutral')region.influence={atlas:8,meridian:8,concordat:8};else region.influence[owner]=62+(hash(seed+id)%10);
@@ -103,6 +109,9 @@ export function createQuickGame(
     rivalTrust: { atlas: 65, meridian: 65, concordat: 65 },
     campaigns: {},
     eventTurn: 0,
+    accords: {},
+    independents:createIndependents(regions),
+    activeCampaigns:[],
     rivalHeld: { atlas: 0, meridian: 0, concordat: 0 },
     winner: null,
     regions,
@@ -160,7 +169,7 @@ export function actionCost(
 }
 export function factionIncome(state: QuickState, actor: FactionId): number {
   return (
-    REALMS[actor].income +
+    REALMS[actor].income + independentIncome(state,actor) +
     state.regions.reduce(
       (sum, r) =>
         sum +
@@ -205,6 +214,11 @@ export function mediaReach(
   }
   for(const i of owned.filter(i=>regionRole(state.regions[i])==='relay'&&state.regions[i].mediaNodes[actor]>0)){
     let frontier=new Set([i]);for(let hop=0;hop<3;hop++){const next=new Set<number>();for(const [a,b] of links){if(frontier.has(a))next.add(b);if(frontier.has(b))next.add(a);}for(const j of next)reached.add(j);frontier=next;}
+  }
+  independentReach(state,actor,links,reached);
+  const accord=state.accords?.[actor];
+  if(accord?.npc==='courier'&&accord.expires>=state.turn){
+    const origin=state.regions.findIndex(r=>r.id===accord.regionId);if(origin>=0){reached.add(origin);for(const [a,b] of links){if(a===origin)reached.add(b);if(b===origin)reached.add(a);}}
   }
   return reached;
 }
@@ -263,6 +277,7 @@ export function repeatPenalty(
   topic: TopicId,
   actor = state.player,
 ): number {
+  const accord=state.accords?.[actor];if(accord?.npc==='archivist'&&accord.expires>=state.turn)return 0;
   const last = state.campaigns[`${actor}:${region.id}`];
   return last?.topic === topic ? Math.min(16, last.repeats * 8) : 0;
 }
@@ -445,8 +460,10 @@ export function quickAction(
 }
 export type ActionEvent = {
   id: number;
-  kind: QuickAction | "opponent" | "blocked" | "income" | "event";
-  actor: FactionId;
+  kind: QuickAction | "opponent" | "blocked" | "income" | "event" | "independent" | "campaign";
+  campaignPhase?:"launch"|"tick";
+  shieldGranted?:boolean;
+  actor: ActorId;
   regionId?: string;
   amount: number;
   captured?: boolean;
@@ -498,7 +515,7 @@ function rivalDecision(
     !actionError(state, center, "media", actor)
   )
     return { region: center, action: "media", topic: "development" };
-  if (trust < 40 && owned[0] && !actionError(state, owned[0], "protect", actor))
+  if (trust < Math.max(40,objective(state).trust+3) && owned[0] && !actionError(state, owned[0], "protect", actor))
     return { region: owned[0], action: "protect", topic: "stability" };
   const targets = state.regions
     .filter(
@@ -545,6 +562,7 @@ export function rivalOutlook(state: QuickState, actor: FactionId) {
     centers: state.regions.filter(
       (r) => r.infoController === actor && r.mediaNodes[actor] > 0,
     ).length,
+    campaign: (()=>{const c=state.activeCampaigns?.find(c=>c.actor===actor);return c?`${CHANNELS[c.channel].name}: ${c.stage}/${CHANNELS[c.channel].duration} · ${state.regions.find(r=>r.id===c.regionId)?.name}`:null;})(),
     target: choice?.region.name ?? null,
     intent:
       choice?.action === "media"
@@ -562,6 +580,7 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
     frames: TurnFrame[] = [],
     mode = objective(state);
   for (const actor of FACTION_IDS.filter((f) => f !== state.player)) {
+    state.regions.forEach(r=>r.factCheckShield[actor]=0);
     if (state.turn % 4 === 0) {
       const target = eventTarget(state, actor),
         before = target.influence[actor],
@@ -586,7 +605,11 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
     }
     const acted = new Set<string>();
     for (let n = 0; n < mode.aiActions; n++) {
-      if (n === 0) state.regions.forEach((r) => (r.factCheckShield[actor] = 0));
+
+      if(n===0&&state.turn%6===0){
+        const partner=INDEPENDENT_IDS.find(id=>state.independents?.some(b=>b.id===id&&b.cities.some(city=>state.regions.some(r=>r.id===city&&r.infoController===actor)))&&applyDiplomacy(state,id,actor));
+        if(partner){frames.push({state:structuredClone(state),event:{kind:'event',actor,amount:0,text:state.log[0]}});continue;}
+      }
       const choice = rivalDecision(
         state,
         actor,
@@ -604,6 +627,9 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
           },
         });
         continue;
+      }
+      if(n===0&&mode.aiActions&&state.difficulty!=='discovery'&&state.turn%3===0&&choice.action==='attract'){
+        const channel=DOCTRINES[actor].channel;if(applyCampaign(state,choice.region.id,channel,mediaReach,actor,choice.topic)){acted.add(choice.region.id);frames.push({state:structuredClone(state),event:{kind:'campaign',campaignPhase:'launch',actor,regionId:choice.region.id,amount:0,text:state.log[0]}});continue;}
       }
       const { region, action, topic } = choice;
       acted.add(region.id);
@@ -653,6 +679,9 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
       });
     }
   }
+  advanceIndependents(state,regionController,(event)=>frames.push({state:structuredClone(state),event}));
+  const freshShields=new Set<string>();
+  advanceCampaigns(state,mediaReach,regionController,event=>{if(event.shieldGranted&&event.actor===state.player&&event.regionId)freshShields.add(event.regionId);frames.push({state:structuredClone(state),event});});
   const income = turnIncome(state);
   state.influence += income;
   for (const actor of FACTION_IDS.filter((f) => f !== state.player))
@@ -677,7 +706,7 @@ export function planQuickEndTurn(current: QuickState): TurnFrame[] {
         if (actor === state.player)
           changes.push({ regionId: region.id, actor, amount });
       }
-      if (actor === state.player) region.factCheckShield[actor] = 0;
+      if (actor === state.player&&!freshShields.has(region.id)) region.factCheckShield[actor] = 0;
     }
     region.fatigue = Math.max(0, region.fatigue - 4);
     region.infoController = regionController(region);
@@ -756,21 +785,14 @@ export function rivalObjective(state: QuickState) {
         hold: 2,
       };
 }
-function worldEventDefinition(state: QuickState) {
-  return WORLD_EVENTS[
-    ((hash(state.seed) % WORLD_EVENTS.length) +
-      Math.floor(state.turn / 4) -
-      1 +
-      WORLD_EVENTS.length) %
-      WORLD_EVENTS.length
-  ];
-}
+function worldEventDefinition(state: QuickState) {return characterEvent(state.turn);}
 export function eventTarget(state: QuickState, actor = state.player): Region {
   const reach = mediaReach(state, actor);
   return state.regions
-    .filter((_r, i) => reach.has(i))
+    .filter((_r, i) => worldEventDefinition(state).npc==='courier'||reach.has(i))
     .sort(
       (a, b) =>
+        Number(reach.has(state.regions.indexOf(a)))-Number(reach.has(state.regions.indexOf(b))) ||
         Number(a.infoController === actor) -
           Number(b.infoController === actor) ||
         hash(state.seed + state.turn + a.id) -
@@ -821,6 +843,11 @@ function applyWorldEvent(
   );
   region.fatigue = Math.max(0, Math.min(100, region.fatigue + option.fatigue));
   region.infoController = regionController(region);
+  if(option.id==='verify'){
+    const npc=worldEventDefinition(state).npc;state.accords??={};
+    state.accords[actor]={npc,regionId:region.id,expires:state.turn+2};
+    if(npc==='editor')for(const city of state.regions)if(city.infoController===actor)city.factCheckShield[actor]=1;
+  }
   state.log.unshift(
     `${REALMS[actor].name}: ${worldEventDefinition(state).title} · ${option.title} · ${region.name}.`,
   );
@@ -838,3 +865,11 @@ export function resolveWorldEvent(
   state.eventTurn = state.turn;
   return state;
 }
+
+export function negotiateIndependent(current:QuickState,id:typeof INDEPENDENT_IDS[number]):QuickState{
+ if(pendingWorldEvent(current))return current;
+ const next=structuredClone(current);return applyDiplomacy(next,id)?next:current;
+}
+
+export function campaignError(state:QuickState,id:string,channel:CampaignChannel):string|null{return pendingWorldEvent(state)?'Сначала ответьте на сюжетное событие':channelError(state,id,channel,mediaReach);}
+export function launchCampaign(current:QuickState,id:string,channel:CampaignChannel):QuickState{if(campaignError(current,id,channel))return current;const next=structuredClone(current);return applyCampaign(next,id,channel,mediaReach)?next:current;}

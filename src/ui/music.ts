@@ -68,6 +68,7 @@ export class MusicPlayer {
   private hidden = false;
   private held = false;
   private duck = 1;
+  private pauseSync:Promise<void>=Promise.resolve();
   private generation = 0;
   private disposed = false;
   private loading = false;
@@ -81,11 +82,13 @@ export class MusicPlayer {
   }
   private ensureContext() {
     if (this.disposed) throw Error("disposed");
+    if(this.context?.state==='closed'){for(const voice of this.voices){voice.source.disconnect();voice.gain.disconnect();}this.voices.clear();this.active=null;this.context=null;this.master=null;}
     if (!this.context) {
       this.context = this.deps.context?.() ?? new AudioContext();
       this.master = this.context.createGain();
       this.master.gain.value = 0;
       this.master.connect(this.context.destination);
+      const context=this.context;context.onstatechange=()=>{if(context===this.context&&!this.disposed&&this.unlocked&&!this.hidden&&!this.held&&context.state!=='running'&&context.state!=='closed')void this.syncPause();};
     }
     return this.context;
   }
@@ -117,7 +120,7 @@ export class MusicPlayer {
     if (this.unlocked) void this.pump();
   }
   setDucked(value: boolean) {
-    this.duck = value ? 0 : 1;
+    this.duck = value ? 0.25 : 1;
     if (this.master) this.ramp(this.master.gain, this.level(), 0.12);
     if (!value && this.unlocked) void this.pump();
   }
@@ -129,27 +132,27 @@ export class MusicPlayer {
     this.held = held;
     void this.syncPause();
   }
-  private async syncPause() {
-    if (!this.context || !this.unlocked || this.disposed) return;
-    try {
-      if (this.hidden || this.held) {
-        await this.context.suspend();
-        this.report("paused");
-      } else {
-        await this.context.resume();
-        if (this.active) this.report(this.level() ? "playing" : "muted");
-        void this.pump();
-      }
-    } catch {
-      this.report("blocked");
-    }
+  private syncPause():Promise<void>{
+    // Browser suspend/resume promises can settle late. Serialize them and read the latest intent.
+    this.pauseSync=this.pauseSync.catch(()=>undefined).then(async()=>{
+      if(!this.context||!this.unlocked||this.disposed)return;
+      const context=this.context,paused=this.hidden||this.held;
+      try{
+        if(paused&&context.state==='running')await context.suspend();
+        else if(!paused&&context.state!=='running')await context.resume();
+        if(this.disposed||context!==this.context||paused!==(this.hidden||this.held))return;
+        if(paused)this.report('paused');else{if(this.active)this.report(this.level()?'playing':'muted');void this.pump();}
+      }catch{if(!this.disposed)this.report('blocked');}
+    });return this.pauseSync;
   }
   async unlock() {
     if (this.disposed) return;
     try {
-      const context = this.ensureContext();
+      const context=this.ensureContext();
       this.unlocked = true;
-      if (!this.hidden && !this.held) await context.resume();
+      // Keep the first resume inside the actual user gesture, then reconcile delayed visibility work.
+      if(!this.hidden&&!this.held&&context.state!=='running')await context.resume();
+      await this.syncPause();
       if (this.master) this.ramp(this.master.gain, this.level(), 0.2);
       await this.pump();
     } catch {
@@ -304,6 +307,7 @@ export class MusicPlayer {
     this.active = null;
     this.buffers.clear();
     this.pending.clear();
+    if(this.context)this.context.onstatechange=null;
     void this.context?.close().catch(() => undefined);
     this.context = null;
     this.master = null;

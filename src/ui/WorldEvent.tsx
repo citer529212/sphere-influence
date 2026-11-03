@@ -3,6 +3,7 @@ import {
   eventAffordable,
   pendingWorldEvent,
 } from "../game/quickGame";
+import { CHARACTERS } from "../game/characters";
 import { Modal } from "./Modal";
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n}`;
 export function WorldEvent({
@@ -23,8 +24,9 @@ export function WorldEvent({
       className="world-event-dialog"
     >
       <span className="guide-eyebrow">
-        СОБЫТИЕ · ХОД {game.turn} · {event.region.name}
+        {event.chapter} · ХОД {game.turn} · {event.region.name}
       </span>
+      <div className="story-speaker"><span style={{color:CHARACTERS[event.npc].color}}>{CHARACTERS[event.npc].symbol}</span><div><strong>{CHARACTERS[event.npc].name}</strong><small>{CHARACTERS[event.npc].title} · неигровой персонаж</small></div></div>
       <h2 id="world-event-title" data-autofocus tabIndex={-1}>
         {event.title}
       </h2>

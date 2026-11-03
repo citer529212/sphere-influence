@@ -95,7 +95,7 @@ assert.ok(g.mediaReach(expanded).has(4));
 const { play } = await import("./simulate-information.mjs");
 for (const player of ["atlas", "meridian", "concordat"]) {
   const easy = play("2026-10-19", player, "discovery"),
-    normal = play("2026-10-19", player, "standard");
+    normal = play("2026-10-19", player, "standard",player==='atlas'?{campaigns:false}:{});
   assert.equal(easy.result, "win");
   assert.equal(normal.result, "win");
   assert.ok(

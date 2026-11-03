@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 // Render the actual React school for every saved lesson, not only its game rules.
 const file=new URL('../.school-render-check.mjs',import.meta.url);
 try{
- const bundle=await build({stdin:{contents:`import React from 'react';import {renderToString} from 'react-dom/server';import Tutorial from './src/ui/Tutorial';export {LESSONS,LEARNING_KEY} from './src/game/tutorial';export {turnReadingTime} from './src/ui/turnTiming';export const render=player=>renderToString(React.createElement(Tutorial,{player,onClose:()=>{}}));`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',write:false});
+ const bundle=await build({stdin:{contents:`import React from 'react';import {renderToString} from 'react-dom/server';import Tutorial from './src/ui/Tutorial';import IndependentPanel from './src/ui/IndependentPanel';import GoalsPanel from './src/ui/GoalsPanel';import CampaignPlanner from './src/ui/CampaignPlanner';import {createQuickGame,negotiateIndependent} from './src/game/quickGame';export {LESSONS,LEARNING_KEY} from './src/game/tutorial';export {turnReadingTime} from './src/ui/turnTiming';export const planner=(player,difficulty)=>{const game=createQuickGame('planner-render',player,difficulty);return renderToString(React.createElement(CampaignPlanner,{game,regionId:game.regions.find(r=>r.politicalOwner===player).id,onLaunch:()=>{}}));};export const goals=(player,difficulty)=>renderToString(React.createElement(GoalsPanel,{game:createQuickGame('goal-render',player,difficulty),onClose:()=>{},checkpointPending:true}));export const panel=(player,difficulty)=>renderToString(React.createElement(IndependentPanel,{game:negotiateIndependent(createQuickGame('dialog-render',player,difficulty),'platforms'),onClose:()=>{},onChoose:()=>{}}));export const render=player=>renderToString(React.createElement(Tutorial,{player,onClose:()=>{}}));`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',write:false});
  writeFileSync(file,bundle.outputFiles[0].text);
  const school=await import(file.href);let saved;
  globalThis.window={localStorage:{getItem:()=>saved}};
@@ -13,6 +13,7 @@ try{
   saved=JSON.stringify({version:1,index,completed:[]});
   const html=school.render(player);assert.ok(html.includes(school.LESSONS[index].title));assert.ok(!html.includes('undefined'));
  }
+ for(const actor of ['atlas','meridian','concordat'])for(const mode of ['discovery','standard','expert']){const planHtml=school.planner(actor,mode);assert.ok(planHtml.includes('Новостная сеть'));assert.ok(planHtml.includes('Вирусный эфир'));assert.ok(planHtml.includes('Сеть сообществ'));assert.ok(!planHtml.includes('undefined'));const goalHtml=school.goals(actor,mode);assert.ok(goalHtml.includes('Подтверждения подряд'));assert.ok(goalHtml.includes('промежуточные'));const html=school.panel(actor,mode);assert.ok(html.includes('Лига платформ'));assert.ok(html.replace(/<[^>]*>/g,'').includes('Ваш договор действует до хода 4'));assert.ok(!html.includes('undefined'));assert.ok(html.includes('Архивная республика'));assert.ok(html.includes('Союз кочевых медиа'));}
  saved='{';assert.ok(school.render('atlas').includes(school.LESSONS[0].title));
  assert.ok(school.turnReadingTime('Короткое действие')>=4200);assert.ok(school.turnReadingTime('Длинное действие '.repeat(40))>=7500);
  delete globalThis.window;
@@ -31,4 +32,4 @@ assert.ok(stores.has('unrelated-project'));assert.ok(stores.has('sphere-influenc
 listeners.fetch({request:{url:'https://game.test/assets/old-school.js',method:'GET',headers:new Headers()},respondWith:p=>pending=p});assert.equal(await (await pending).text(),'old school');
 rejectWrites=true;
 listeners.fetch({request:{url:'https://game.test/something-new',method:'GET',headers:new Headers()},respondWith:p=>pending=p});assert.equal(await (await pending).text(),'fresh network','Cache quota must not break a working network response');
-console.log('Screen recovery passed: 66 real school renders, malformed progress, readable turns, pre-cached screens, retained old chunks, unrelated caches and quota-safe network.');
+console.log('Screen recovery passed: 75 real school renders, nine diplomacy, nine goals and nine campaign planner renders, malformed progress, readable turns, pre-cached screens, retained old chunks, unrelated caches and quota-safe network.');

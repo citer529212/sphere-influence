@@ -11,7 +11,7 @@ const g = await import(
     Buffer.from(bundled.outputFiles[0].text).toString("base64")
 );
 const infoBundle = await build({
-  entryPoints: ["src/game/information.ts"],
+  stdin:{contents:"export * from './src/game/information';export {DOCTRINES} from './src/game/campaigns';",resolveDir:process.cwd()},
   bundle: true,
   platform: "node",
   format: "esm",
@@ -72,6 +72,11 @@ export function play(seed, player, difficulty, options = {}) {
       ) {
         action = "media";
         region = center;
+      } else if(options.campaigns!==false&&state.turn>=3&&centers>=(options.centers??3)&&g.supportNeeded(target,player)>12&&state.influence>=9&&!state.activeCampaigns.some(c=>c.actor===player)){
+        const channel=player==='meridian'&&(target.fatigue>=40||state.trust<60)?'community':info.DOCTRINES[player].channel;
+        state=g.setCampaignTopic(state,g.bestCampaignTopic(state,target));
+        if(!g.campaignError(state,target.id,channel)){plan.push({turn:state.turn,id:target.id,campaign:channel});state=g.launchCampaign(state,target.id,channel);continue;}
+        action='attract';region=target;
       } else {
         action = "attract";
         region = target;

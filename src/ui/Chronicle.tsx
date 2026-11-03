@@ -2,6 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { FACTION_IDS, REALMS } from "../game/realms";
 import { DIFFICULTIES, DifficultyId } from "../game/information";
 import { FactionId } from "../game/types";
+import { DOCTRINES } from "../game/campaigns";
+import { INDEPENDENTS } from "../game/independents";
+import { CHARACTERS } from "../game/characters";
+import { VICTORY_POSTERS } from "./cinematicAssets";
 import { CinematicOpening } from "./CinematicOpening";
 function useDialogFocus(onEscape?: () => void) {
   const escape = useRef(onEscape);
@@ -172,17 +176,16 @@ export function RealmSelection({
   return (
     <div
       ref={dialog}
-      className="realm-screen"
+      className={`realm-screen realm-council council-${chosen}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="realm-title"
     >
       <div className="realm-heading">
-        <span className="map-eyebrow">ТРИ КОРОНЫ · ОДИН МИР</span>
-        <h1 id="realm-title">Кто поведёт вашу державу?</h1>
+        <span className="map-eyebrow">СФЕРЫ ВЛИЯНИЯ · ЛЕТОПИСЬ РАСКОЛОТОГО АТЛАСА</span>
+        <h1 id="realm-title">Карта разорвана. Чей голос объединит мир?</h1>
         <p>
-          Борьба редакций, доверия и общественных повесток. Политические границы
-          сохраняются.
+          Три правителя разделили землю. Курьеры, архивы и независимая печать ещё связывают людей. Выберите корону — и решите, кому поверит мир.
         </p>
       </div>
       <div className="difficulty-selector" role="group" aria-label="Сложность">
@@ -218,6 +221,8 @@ export function RealmSelection({
               aria-pressed={chosen === f}
               onClick={() => {setChosen(f);onPreview(f);}}
             >
+              <img className="realm-cinematic-art" src={VICTORY_POSTERS[f]} alt="" />
+              <span className="realm-chosen-mark">{chosen===f?"ВАШ ВЫБОР":"ДОСЬЕ ПРАВИТЕЛЯ"}</span>
               <RulerPortrait faction={f} />
               <span className="map-eyebrow">{r.title}</span>
               <h2>{r.ruler}</h2>
@@ -230,20 +235,23 @@ export function RealmSelection({
           );
         })}
       </div>
+      <section className="realm-dossier" aria-live="polite"><span className="map-eyebrow">ВАША РОЛЬ В ИСТОРИИ</span><h2>{REALMS[chosen].ruler} · {REALMS[chosen].title}</h2><p>{chosen==='atlas'?'Свяжите разорванный атлас торговыми путями и доступными редакциями. Берегите уставшую от непрерывных кампаний аудиторию.':chosen==='meridian'?'Постройте устойчивую сеть проверенных редакций. Компенсируйте слабые кампании доверием и защитой фактов.':'Объедините голоса общин, используя высокий доход и восстановление доверия. Каждое громкое обещание обходится вашей репутации дороже.'}</p><p className="realm-doctrine"><b>{DOCTRINES[chosen].name}.</b> {DOCTRINES[chosen].bonus}</p><div className="dossier-traits"><p>+ {REALMS[chosen].privilege}</p><p>− {REALMS[chosen].drawback}</p></div><strong>{difficulty==='expert'?'28 городов · 10 независимых аудиторий · Южный пояс островов':'Знакомый атлас · для новых островов выберите «Информационный шторм»'}</strong></section>
+      <details className="council-characters"><summary>Они не носят корон — но меняют историю · 3 персонажа</summary><div className="character-cards">{Object.entries(CHARACTERS).map(([id,c])=><article key={id}><span style={{color:c.color}}>{c.symbol}</span><h3>{c.name}</h3><small>{c.title}</small><p>{c.story}</p><strong>{c.mechanic}</strong><p>Встречи каждые четыре хода. Для игры недоступен.</p></article>)}</div></details>
+      <details className="council-characters"><summary>Три независимые силы · платформы, расследования и сообщества</summary><div className="character-cards">{Object.entries(INDEPENDENTS).map(([id,c])=><article key={id}><span style={{color:c.color}}>{c.symbol}</span><h3>{c.name}</h3><small>{c.goal}</small><p>{c.rule}</p><strong>{c.treaty}</strong></article>)}</div></details>
       <div className="realm-start">
         <button onClick={onMusic}>Музыка · настройки и авторство</button>
         <button onClick={() => onChoose(chosen, difficulty)}>
           Начать: {REALMS[chosen].name} →
         </button>
         {!required && <button onClick={onCancel}>Вернуться в партию</button>}
-        <small>Новая попытка сохраняется отдельно для каждой сложности.</small>
+        <small>Игровые правители: только три короны. Сюжетные встречи начинаются на 4-м ходу. Правила 10: прежние сохранения не удаляются, новая кампания сохраняется отдельно.</small>
       </div>
     </div>
   );
 }
-export function Opening({faction,sound,onSoundChange,onDone,onMusic}:{faction:FactionId;sound:boolean;onSoundChange:(enabled:boolean)=>void;onDone:()=>void;onMusic:()=>void}):JSX.Element{
+export function Opening({faction,sound,onSoundChange,onDone,onMusic,beforePlay,covered}:{covered?:boolean;beforePlay?:()=>Promise<void>;faction:FactionId;sound:boolean;onSoundChange:(enabled:boolean)=>void;onDone:()=>void;onMusic:()=>void}):JSX.Element{
   const [failed,setFailed]=useState(false);
-  return failed?<IllustratedOpening faction={faction} onDone={onDone}/>:<CinematicOpening onMusic={onMusic} faction={faction} sound={sound} onSoundChange={onSoundChange} onDone={onDone} onUnavailable={()=>setFailed(true)}/>;
+  return failed?<IllustratedOpening faction={faction} onDone={onDone}/>:<CinematicOpening covered={covered} beforePlay={beforePlay} onMusic={onMusic} faction={faction} sound={sound} onSoundChange={onSoundChange} onDone={onDone} onUnavailable={()=>setFailed(true)}/>;
 }
 function IllustratedOpening({
   faction,

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+const b=await build({entryPoints:['src/ui/mediaPlayback.ts'],bundle:true,platform:'node',format:'esm',write:false});const g=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+let activeGesture=true,played=0,prepared=0,release;
+const video={play:()=>{assert.ok(activeGesture,'Manual play must run inside the tap, before asynchronous music');played++;return Promise.resolve();}};
+const pending=()=>{prepared++;return new Promise(r=>release=r);};
+const manual=g.playVideo(video,pending,()=>true,true);activeGesture=false;assert.equal(played,1);assert.equal(prepared,1);await manual;release();
+let current=true;played=0;const auto=g.playVideo({play:()=>{played++;return Promise.resolve();}},pending,()=>current);assert.equal(played,0);current=false;release();await auto;assert.equal(played,0,'A stale preparation may not start a discarded movie');
+for(const [time,duration,expected] of [[0,NaN,false],[0,0,false],[2,5.04,false],[5.04,5.04,true],[4.99,5.04,true]])assert.equal(g.videoFinished(time,duration),expected);
+console.log('Media playback passed: tap activation preserved before music preparation, stale autoplay cancelled, and only a real positive-duration ending completes a movie.');

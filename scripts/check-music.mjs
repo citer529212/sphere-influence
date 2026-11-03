@@ -193,7 +193,7 @@ saveMusicPreferences(denied, DEFAULT_MUSIC);
   await tick();
   assert.equal(context.sources.length, 2, "Unmute keeps playhead");
   player.setDucked(true);
-  assert.equal(context.gains[0].gain.value, 0);
+  assert.ok(Math.abs(context.gains[0].gain.value-0.05)<0.000001,"Opening keeps a quiet music bed instead of silence");
   player.setDucked(false);
   await tick();
   assert.equal(context.sources.length, 2);
@@ -382,6 +382,15 @@ for (const item of manifest) {
       "Decoded duration must match edit manifest",
     );
   }
+}
+{
+ const r=rig();r.player.setTheme('atlas');await r.player.unlock();let completeSuspend;
+ r.context.suspend=()=>new Promise(resolve=>{completeSuspend=()=>{r.context.state='suspended';resolve();};});
+ r.player.setHidden(true);await tick();r.player.setHidden(false);await tick();
+ assert.ok(completeSuspend);completeSuspend();await tick();await tick();assert.equal(r.context.state,'running','Late suspension must not silence a returned tab');assert.equal(r.context.sources.length,1,'Visibility recovery must keep the original playhead');r.player.dispose();
+}
+{
+ const r=rig();let gesture=true;r.context.resume=async()=>{assert.ok(gesture,'Initial audio resume must stay inside the initiating gesture');r.context.state='running';};r.player.setTheme('atlas');const activation=r.player.unlock();gesture=false;await activation;assert.equal(r.context.sources.length,1);r.player.dispose();
 }
 console.log(
   "Music checks passed: eight identified recordings, all screen/ruler mappings, persisted settings, autoplay gate, no UI restarts, sequential fades, stale-load rejection, mute/duck, pause/resume, victory continuity, one-time intro, failures/retry, cleanup and decoded loop boundaries. Browser listening remains a separate manual check.",
