@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { MapLoading } from "./components/MapLoading";
+import { TitleScreen } from "./ui/TitleScreen";
 import { AssetBoundary } from "./ui/AssetBoundary";
 import { CampaignChannel } from "./game/campaigns";
 import { launchCampaign } from "./game/quickGame";
@@ -157,6 +158,8 @@ export default function App(): JSX.Element {
     [opening, setOpening] = useState(false),
     [collapsed, setCollapsed] = useState(()=>compactDevice(deviceHints())),
     [introduction, setIntroduction] = useState(false);
+  const [titleOpen,setTitleOpen]=useState(false);
+  const closeTitle=useCallback(()=>setTitleOpen(false),[]);
   const [menu, setMenu] = useState(false),
     [rules, setRules] = useState(false),
     [journal, setJournal] = useState(false),
@@ -210,8 +213,7 @@ export default function App(): JSX.Element {
     closeShare = useCallback(() => setShareOpen(false), []),
     finishOpening = useCallback(() => {
       setOpening(false);
-      setIntroduction(true);
-      setRules(true);
+      setTitleOpen(true);
     }, []);
   const openLearning = useCallback(() => {setMenu(false);setRules(false);setIntroduction(false);setLearning(true);}, []);
   const closeLearning = useCallback((complete:boolean) => {setLearning(false);if(complete)setPreferences(p=>({...p,tutorialStep:3}));}, []);
@@ -238,7 +240,7 @@ export default function App(): JSX.Element {
   const threat = rivals
     .filter((r) => r.goal && (r.held > 0 || r.cities >= r.goal - 1))
     .sort((a, b) => b.held - a.held || b.cities - a.cities)[0];
-  const overlayOpen = goals||diplomacy||
+  const overlayOpen = titleOpen||goals||diplomacy||
     learning ||
     musicOpen ||
     selection ||
@@ -254,6 +256,7 @@ export default function App(): JSX.Element {
     if (pendingEvent && !busy && !overlayOpen) setEventOpen(true);
   }, [
     game.turn,
+    titleOpen,
     learning,
     busy,
     musicOpen,
@@ -288,6 +291,7 @@ export default function App(): JSX.Element {
     void audio.play("select");
   };
   const blocked =
+    titleOpen ||
     busy ||
     learning ||
     musicOpen ||
@@ -309,7 +313,7 @@ export default function App(): JSX.Element {
     : region.infoController === "contested"
       ? "Соперничество повесток"
       : FACTIONS[region.infoController].name;
-  useEffect(()=>{if(!selection&&!opening)setMapStarted(true);},[selection,opening]);
+  useEffect(()=>{if(!selection&&!opening&&!titleOpen)setMapStarted(true);},[selection,opening,titleOpen]);
   useEffect(() => {
     if (!selection && !opening && !introduction && !busy)
       setSaved(saveSession(boot.storage, game, selectedId));
@@ -333,7 +337,7 @@ export default function App(): JSX.Element {
   useEffect(()=>{music.setPreferences(musicPreferences);saveMusicPreferences(boot.storage,musicPreferences);},[music,musicPreferences,boot.storage]);
   const musicVictoryKey=`${game.seed}:${game.player}:${game.difficulty}:${game.turn}`;
   const waitingVictory= victoryPending && victoryMusicStarted!==musicVictoryKey;
-  const desiredMusic=musicForScreen(selection,musicPreview,player,game.result,busy,requiresRuler);
+  const desiredMusic=titleOpen?'menu':musicForScreen(selection,musicPreview,player,game.result,busy,requiresRuler);
   useEffect(()=>{music.setDucked(opening&&preferences.sound);music.setTheme(waitingVictory?null:desiredMusic);music.setHeld(victoryPending&&!waitingVictory&&!victoryPlaying&&!musicOpen);},[music,desiredMusic,opening,preferences.sound,waitingVictory,victoryPending,victoryPlaying,musicOpen]);
   const prepareVictoryMusic=useCallback(async()=>{
     await Promise.all([music.prepare(`victory-${player}`),new Promise<void>(resolve=>setTimeout(resolve,700))]);
@@ -541,14 +545,15 @@ export default function App(): JSX.Element {
       <main className="map-stage" aria-label="Стратегическая карта">
         {mapStarted?<AssetBoundary
           fallback={
-            <MapLoading regions={game.regions} onSelect={select} failed />
+            <MapLoading difficulty={game.difficulty} regions={game.regions} onSelect={select} failed />
           }
         >
           <Suspense
-            fallback={<MapLoading regions={game.regions} onSelect={select} />}
+            fallback={<MapLoading difficulty={game.difficulty} regions={game.regions} onSelect={select} />}
           >
             <WorldScene
               key={game.difficulty}
+              difficulty={game.difficulty}
               regions={game.regions}
               selectedRegionId={selectedId}
               onSelectRegion={select}
@@ -564,7 +569,7 @@ export default function App(): JSX.Element {
               fullscreen
             />
           </Suspense>
-        </AssetBoundary>:<MapLoading regions={game.regions} onSelect={select}/>}
+        </AssetBoundary>:<MapLoading difficulty={game.difficulty} regions={game.regions} onSelect={select}/>}
       </main>
       {musicStatus==='blocked'&&musicPreferences.enabled&&musicPreferences.volume>0&&<button className="music-resume" onClick={()=>{music.setHidden(document.hidden);void music.unlock();}}>♫ Браузер приостановил музыку · включить</button>}
       <header className="game-hud">
@@ -1062,7 +1067,7 @@ export default function App(): JSX.Element {
           }
         /></Suspense></AssetBoundary>
       )}
-      {!selection && !opening && !introduction && (
+      {!titleOpen && !selection && !opening && !introduction && (
         <button
           className="rival-intel"
           disabled={busy}
@@ -1209,6 +1214,9 @@ export default function App(): JSX.Element {
           <button onClick={restart}>Начать заново</button>
         </Modal>
       )}
+      {titleOpen && !rules && !learning && <TitleScreen difficulty={game.difficulty} sound={preferences.sound}
+        onPlay={closeTitle} onLearn={openLearning} onRules={()=>{setIntroduction(true);setRules(true);}}
+        onMusic={()=>setMusicOpen(true)} onSound={toggleSound}/>}
       {selection && (
         <RealmSelection
           onPreview={setMusicPreview}

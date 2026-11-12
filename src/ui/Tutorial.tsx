@@ -16,7 +16,6 @@ import { FACTION_IDS, REALMS, climateDescription } from "../game/realms";
 import {
   TOPICS,
   CITY_TOPICS,
-  MEDIA_LINKS,
   newsAt,
   TopicId,
 } from "../game/information";
@@ -42,6 +41,8 @@ import { campaignError } from "../game/quickGame";
 import { victoryProgress } from "../game/goals";
 import { diplomacyError } from "../game/independents";
 import { Modal } from "./Modal";
+import { PracticeMap } from "./PracticeMap";
+import { worldLinks } from "../game/worlds";
 
 function Exercise({
   lesson,
@@ -54,6 +55,8 @@ function Exercise({
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const exercise=useRef<HTMLDivElement>(null);
+  const cueSerial=useRef(0);
+  const [cue,setCue]=useState<{id:string;serial:number;delta:number}|null>(null);
   const [previous,setPrevious]=useState<ReturnType<typeof createPractice>['game']|null>(null);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
@@ -61,7 +64,18 @@ function Exercise({
   }, []);
   const [sample, setSample] = useState(() => createPractice(lesson.id, player)),
     [answer, setAnswer] = useState<number | null>(null);
-  const send = (e: PracticeEvent) => {const next=practiceStep(sample,e);if(next.game!==sample.game)setPrevious(sample.game);setSample(next);};
+  const send = (event: PracticeEvent) => {
+    const next=practiceStep(sample,event);
+    if(next.game!==sample.game){
+      setPrevious(sample.game);
+      const id=(event.type==='frame'?sample.frames[sample.frame]?.event.regionId:undefined)??next.selected;
+      const support=(state:typeof sample.game)=>state.regions.find(r=>r.id===id)?.influence[player]??0;
+      setCue({id,serial:++cueSerial.current,delta:support(next.game)-support(sample.game)});
+    }else if(event.type==='select'&&next.selected!==sample.selected){
+      setCue({id:next.selected,serial:++cueSerial.current,delta:0});
+    }
+    setSample(next);
+  };
   const game = sample.game,
     region = game.regions.find((r) => r.id === sample.selected)!,
     reach = mediaReach(game),
@@ -76,7 +90,7 @@ function Exercise({
   const showPractice = lesson.kind !== "quiz";
   const progress=victoryProgress(game);
   const coachText=done?'✓ Задание выполнено':busy?'Посмотрите ответное действие':lesson.kind==='longCampaign'?(!sample.campaignLaunched?'Запустите кампанию сообществ':`Пройдено этапов: ${sample.campaignTicks}/3. Проведите следующий ход`):lesson.kind==='goals'?(!sample.goalsOpened?'Шаг 1/3: откройте учебные цели':game.held===0?'Шаг 2/3: проведите первый полный ход':'Шаг 3/3: получите второе подтверждение — первого недостаточно'):lesson.kind==='diplomacy'?(!sample.diplomacyDone?'Шаг 1/2: заключите соглашение с портами':'Шаг 2/2: проведите ход и просмотрите ответ портов'):lesson.task;
-  const pointToNext=()=>{const target=exercise.current?.querySelector<HTMLElement>('[data-required="true"]:not(:disabled)')??exercise.current?.querySelector<HTMLElement>('.school-quiz button,.school-map button:not([aria-pressed="true"])');target?.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});target?.focus({preventScroll:true});};
+  const pointToNext=()=>{const target=exercise.current?.querySelector<HTMLElement>('[data-required="true"]:not(:disabled)')??exercise.current?.querySelector<HTMLElement>('.school-quiz button,.practice-atlas button:not([aria-pressed="true"])');target?.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});target?.focus({preventScroll:true});};
   return (
     <div ref={exercise}>
       <section className="school-coach"><div><strong>{coachText}</strong><p>{done?'Результат проверен по игровым правилам.':busy?sample.feedback:'Попробуйте действие сами. Подсказка покажет нужную кнопку, но не выполнит действие за вас.'}</p></div><button onClick={done?onAdvance:pointToNext}>{done?'Дальше →':'Показать действие'}</button></section>
@@ -151,41 +165,11 @@ function Exercise({
             {lesson.kind==='diplomacy' &&<button className="school-mission-button" data-required={!sample.diplomacyDone} disabled={busy||!!diplomacyError(game,'platforms')} onClick={()=>send({type:'diplomacy',id:'platforms'})}>{sample.diplomacyDone?'✓ Договор с портами заключён':'Соглашение с Лигой платформ · 4 ◈ · 1 решение'}</button>}
             {(lesson.kind==='goals'||sample.goalsOpened)&&<div className="school-goals"><button className="school-mission-button" data-required={!sample.goalsOpened} onClick={()=>send({type:'goals'})}>{sample.goalsOpened?`Цели: ${progress.overall}%`:'Открыть учебные цели'}</button>{sample.goalsOpened&&<><p>{progress.reason}</p>{progress.gates.map(g=><div key={g.id}><strong>{g.name}: {g.current}/{g.target} · {g.percent}%</strong><progress value={g.percent} max={100} aria-label={g.name}/></div>)}</>}</div>}
             {previous&&<section className="school-delta" aria-live="polite"><strong>Что изменилось после решения</strong><p>Ресурс {previous.influence} → {game.influence} · доверие {previous.trust}% → {game.trust}%</p><p>Поддержка {previous.regions.find(r=>r.id===region.id)?.influence[player]}% → {region.influence[player]}% · решения {previous.actions} → {game.actions}</p><p>Подтверждения {previous.held}/{mode.hold} → {game.held}/{mode.hold}</p></section>}
-            <div
-              className="school-map"
-              role="group"
-              aria-label="Выбрать учебный город"
-            >
-              {game.regions.map((r, i) => (
-                <button
-                  key={r.id}
-                  data-required={!done&&((lesson.kind==='select'&&r.id!==sample.initial)||(lesson.kind==='specialty'&&citySpecialty(game,r).name.toLowerCase().includes('университет')))}
-                  disabled={busy}
-                  className={`${reach.has(i) ? "" : "outside"} ${r.id === sample.initial ? "school-target" : ""}`}
-                  aria-pressed={r.id === sample.selected}
-                  onClick={() => send({ type: "select", id: r.id })}
-                >
-                  <i
-                    style={{
-                      background:
-                        r.infoController === "contested"
-                          ? "#939c98"
-                          : REALMS[r.infoController].color,
-                    }}
-                  />
-                  {r.name}
-                  <small>
-                    {r.politicalOwner === "neutral"
-                      ? "Остров"
-                      : REALMS[r.politicalOwner].name}{" "}
-                    · вы {r.influence[player]}%
-                    {sample.network
-                      ? ` · ${reach.has(i) ? "В охвате" : "Вне охвата"}`
-                      : ""}
-                  </small>
-                </button>
-              ))}
-            </div>
+            <PracticeMap game={game} selected={sample.selected} reachable={reach} network={sample.network}
+              busy={busy} cue={cue}
+              required={id=>!done&&((lesson.kind==='select'&&id!==sample.initial)||
+                (lesson.kind==='specialty'&&citySpecialty(game,game.regions.find(r=>r.id===id)!).name.toLowerCase().includes('университет')))}
+              onSelect={id=>send({type:'select',id})}/>
             <button
               aria-pressed={sample.network}
               className="school-network"
@@ -198,7 +182,7 @@ function Exercise({
             {sample.network && (
               <p className="school-reach">
                 Связи выбранного города:{" "}
-                {MEDIA_LINKS.filter(
+                {worldLinks(game).filter(
                   ([a, b]) =>
                     a === game.regions.indexOf(region) ||
                     b === game.regions.indexOf(region),
@@ -209,7 +193,7 @@ function Exercise({
                         .name,
                   )
                   .join(", ")}
-                . Доступно {reach.size} из 16 городов. Яркие кнопки — в охвате,
+                . Доступно {reach.size} из {game.regions.length} городов. Яркие кнопки — в охвате,
                 приглушённые — вне охвата.
               </p>
             )}
@@ -370,6 +354,7 @@ function Exercise({
               onClick={() => {
                 setSample(createPractice(lesson.id, player));
                 setPrevious(null);
+                setCue(null);
                 setAnswer(null);
               }}
             >

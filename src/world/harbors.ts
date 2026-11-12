@@ -1,13 +1,11 @@
 import * as THREE from "three";
 import {
-  ALL_CITY_SITES as CITY_SITES,
-  coastDistance,
-  heightAt,
+  DEFAULT_TERRAIN,
   ribbon,
-  channel,
 } from "./terrain";
 
-export function harborSite(index: number) {
+export function harborSite(index: number, map=DEFAULT_TERRAIN) {
+  const {sites:CITY_SITES, coastDistance, heightAt}=map;
   const city = CITY_SITES[index];
   if (!city) return null;
   let best: {
@@ -44,8 +42,9 @@ export function harborSite(index: number) {
   return best;
 }
 
-export function harborModel(index: number) {
-  const site = harborSite(index);
+export function harborModel(index: number, map=DEFAULT_TERRAIN) {
+  const {sites:CITY_SITES, coastDistance, heightAt, channel}=map;
+  const site = harborSite(index,map);
   if (!site) return null;
   const group = new THREE.Group(),
     wood = new THREE.MeshStandardMaterial({

@@ -1,8 +1,9 @@
 import * as THREE from "three";
-import { CITY_SITES, coastDistance, heightAt } from "./terrain";
+import { CITY_SITES, DEFAULT_TERRAIN, heightAt } from "./terrain";
 
 // Routes use a conservative ocean grid; sample every edge so hulls cannot cut across islands.
-export function seaRoutes(): THREE.Vector3[][] {
+export function seaRoutes(map=DEFAULT_TERRAIN): THREE.Vector3[][] {
+  const {sites,coastDistance}=map;
   const width = 39,
     depth = 25,
     points: THREE.Vector3[] = [],
@@ -44,9 +45,9 @@ export function seaRoutes(): THREE.Vector3[][] {
       }
   const ports = [0, 4, 8].map((city) => {
     const target = new THREE.Vector3(
-      CITY_SITES[city].x,
+      sites[city].x,
       0.12,
-      CITY_SITES[city].y,
+      sites[city].y,
     );
     return [...ocean].reduce(
       (best, i) =>
@@ -77,7 +78,7 @@ export function seaRoutes(): THREE.Vector3[][] {
     .filter((path) => path.length > 1);
 }
 
-export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SITES) {
+export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SITES,map=DEFAULT_TERRAIN) {
   const group = new THREE.Group(),
     matrix = new THREE.Matrix4(),
     rotation = new THREE.Quaternion(),
@@ -98,7 +99,7 @@ export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SI
   smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   smoke.frustumCulled = false;
   group.add(smoke);
-  const paths = seaRoutes(),
+  const paths = seaRoutes(map),
     routes = paths.map(() => new THREE.CurvePath<THREE.Vector3>());
   paths.forEach((path, i) => {
     for (let j = 1; j < path.length; j++)
@@ -121,7 +122,7 @@ export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SI
   sails.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   group.add(hulls, sails);
   const tangent = new THREE.Vector3(),
-    grounds = sites.map((city) => heightAt(city.x, city.y)),
+    grounds = sites.map((city) => map.heightAt(city.x, city.y)),
     lengths = routes.map((route) => route.getLength());
   const update = (time: number) => {
     const t = reduced ? 0 : time;
@@ -162,7 +163,7 @@ export function createLivingMap(economy: boolean, reduced: boolean,sites=CITY_SI
   return { group, update };
 }
 
-export function influencePulse(x: number, z: number) {
+export function influencePulse(x: number, z: number, sampleHeight=heightAt) {
   const geometry = new THREE.RingGeometry(0, 7, 64, 20),
     vertices = geometry.attributes.position,
     radii = new Float32Array(vertices.count);
@@ -170,7 +171,7 @@ export function influencePulse(x: number, z: number) {
     const dx = vertices.getX(i),
       dz = vertices.getY(i);
     radii[i] = Math.hypot(dx, dz);
-    vertices.setXYZ(i, dx, Math.max(0.04, heightAt(x + dx, z + dz) + 0.17), dz);
+    vertices.setXYZ(i, dx, Math.max(0.04, sampleHeight(x + dx, z + dz) + 0.17), dz);
   }
   geometry.setAttribute("radius", new THREE.BufferAttribute(radii, 1));
   geometry.computeBoundingSphere();

@@ -3,6 +3,7 @@ import { FACTION_IDS, REALMS } from "../game/realms";
 import { DIFFICULTIES, DifficultyId } from "../game/information";
 import { FactionId } from "../game/types";
 import { DOCTRINES } from "../game/campaigns";
+import { MAP_PRESENTATION } from "../game/mapPresentation";
 import { INDEPENDENTS } from "../game/independents";
 import { CHARACTERS } from "../game/characters";
 import { VICTORY_POSTERS } from "./cinematicAssets";
@@ -200,7 +201,7 @@ export function RealmSelection({
               {DIFFICULTIES[id].cities} городов на карте · цель {DIFFICULTIES[id].goal} · {DIFFICULTIES[id].limit}{" "}
               {id === "standard" ? "хода" : "ходов"}
             </span>
-            <small>{DIFFICULTIES[id].description}</small>
+            <small>{MAP_PRESENTATION[id].name} · {MAP_PRESENTATION[id].description.split(" · ")[1]}</small>
           </button>
         ))}
       </div>
@@ -235,7 +236,7 @@ export function RealmSelection({
           );
         })}
       </div>
-      <section className="realm-dossier" aria-live="polite"><span className="map-eyebrow">ВАША РОЛЬ В ИСТОРИИ</span><h2>{REALMS[chosen].ruler} · {REALMS[chosen].title}</h2><p>{chosen==='atlas'?'Свяжите разорванный атлас торговыми путями и доступными редакциями. Берегите уставшую от непрерывных кампаний аудиторию.':chosen==='meridian'?'Постройте устойчивую сеть проверенных редакций. Компенсируйте слабые кампании доверием и защитой фактов.':'Объедините голоса общин, используя высокий доход и восстановление доверия. Каждое громкое обещание обходится вашей репутации дороже.'}</p><p className="realm-doctrine"><b>{DOCTRINES[chosen].name}.</b> {DOCTRINES[chosen].bonus}</p><div className="dossier-traits"><p>+ {REALMS[chosen].privilege}</p><p>− {REALMS[chosen].drawback}</p></div><strong>{difficulty==='expert'?'28 городов · 10 независимых аудиторий · Южный пояс островов':'Знакомый атлас · для новых островов выберите «Информационный шторм»'}</strong></section>
+      <section className="realm-dossier" aria-live="polite"><span className="map-eyebrow">ВАША РОЛЬ В ИСТОРИИ</span><h2>{REALMS[chosen].ruler} · {REALMS[chosen].title}</h2><p>{chosen==='atlas'?'Свяжите разорванный атлас торговыми путями и доступными редакциями. Берегите уставшую от непрерывных кампаний аудиторию.':chosen==='meridian'?'Постройте устойчивую сеть проверенных редакций. Компенсируйте слабые кампании доверием и защитой фактов.':'Объедините голоса общин, используя высокий доход и восстановление доверия. Каждое громкое обещание обходится вашей репутации дороже.'}</p><p className="realm-doctrine"><b>{DOCTRINES[chosen].name}.</b> {DOCTRINES[chosen].bonus}</p><div className="dossier-traits"><p>+ {REALMS[chosen].privilege}</p><p>− {REALMS[chosen].drawback}</p></div><strong>{MAP_PRESENTATION[difficulty].description}</strong></section>
       <details className="council-characters"><summary>Они не носят корон — но меняют историю · 3 персонажа</summary><div className="character-cards">{Object.entries(CHARACTERS).map(([id,c])=><article key={id}><span style={{color:c.color}}>{c.symbol}</span><h3>{c.name}</h3><small>{c.title}</small><p>{c.story}</p><strong>{c.mechanic}</strong><p>Встречи каждые четыре хода. Для игры недоступен.</p></article>)}</div></details>
       <details className="council-characters"><summary>Три независимые силы · платформы, расследования и сообщества</summary><div className="character-cards">{Object.entries(INDEPENDENTS).map(([id,c])=><article key={id}><span style={{color:c.color}}>{c.symbol}</span><h3>{c.name}</h3><small>{c.goal}</small><p>{c.rule}</p><strong>{c.treaty}</strong></article>)}</div></details>
       <div className="realm-start">

@@ -6,23 +6,24 @@ const values=new Map([['spheres.session.v6:old:standard','old-data']]);
 const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)};
 const actors=['atlas','meridian','concordat'];
 for(const [difficulty,count,home,neutral,goal,limit] of [['discovery',12,3,3,6,16],['standard',16,4,4,10,24],['expert',28,6,10,16,36]]){
+ const terrain=g.terrainFor(difficulty);
  for(const actor of actors){
   const state=g.createQuickGame('map-regression',actor,difficulty);
   assert.equal(state.regions.length,count);assert.equal(new Set(state.regions.map(r=>r.id)).size,count);
   assert.equal(g.objective(state).goal,goal);assert.equal(g.objective(state).limit,limit);
   for(const owner of actors)assert.equal(state.regions.filter(r=>r.politicalOwner===owner).length,home);
   assert.equal(state.regions.filter(r=>r.politicalOwner==='neutral').length,neutral);
-  const sites=state.regions.map(r=>g.ALL_CITY_SITES[g.cityIndex(r)]),links=g.worldLinks(state);
+  const sites=state.regions.map(r=>terrain.sites[g.cityIndex(r)]),links=g.worldLinks(state);
   const reached=new Set([0]);for(let i=0;i<count;i++)for(const [a,b] of links){assert.ok(a>=0&&b<count&&a!==b);if(reached.has(a))reached.add(b);if(reached.has(b))reached.add(a);}
   assert.equal(reached.size,count,'Active media graph must be connected');
   state.regions.forEach((r,i)=>{
    assert.ok(g.regionTopic(r));assert.ok(g.regionRole(r));assert.ok(r.name);
    const site=sites[i],canonical=g.cityIndex(r);
-   assert.equal(g.climateAt(site.x,site.y),g.CITY_CLIMATES[canonical]);
-   assert.ok(g.coastDistance(site.x,site.y)>0);assert.ok(g.heightAt(site.x,site.y)>.5);
+   assert.equal(terrain.climateAt(site.x,site.y),g.CITY_CLIMATES[canonical]);
+   assert.ok(terrain.coastDistance(site.x,site.y)>.65, `${difficulty}: ${r.id} must be on land`);assert.ok(terrain.heightAt(site.x,site.y)>.5);
    assert.equal(g.nearestCity(site.x,site.y,sites),i);
    if(r.politicalOwner===actor)assert.ok(g.mediaReach(state).has(i));
-   for(let j=0;j<i;j++)assert.ok(Math.hypot(site.x-sites[j].x,site.y-sites[j].y)>4);
+   for(let j=0;j<i;j++)assert.ok(Math.hypot(site.x-sites[j].x,site.y-sites[j].y)>2.7);
   });
   const snapshot=JSON.stringify(state);g.quickEndTurn(state);assert.equal(JSON.stringify(state),snapshot,'Turn resolution must preserve input');
   const selected=state.regions.at(-1).id;assert.ok(g.saveSession(storage,state,selected));
@@ -31,15 +32,26 @@ for(const [difficulty,count,home,neutral,goal,limit] of [['discovery',12,3,3,6,1
   for(const corrupt of [v=>v.game.regions.pop(),v=>v.game.regions[0].id='missing-city',v=>v.rules='6']){const v=JSON.parse(valid);corrupt(v);values.set(key,JSON.stringify(v));assert.equal(g.loadSession(storage,state.seed,difficulty),null);}
   values.set(key,valid);
   if(actor!=='atlas')continue;
-  for(const road of g.roadPaths(sites,state.regions.map(r=>r.politicalOwner)))for(const p of road)assert.ok(p.y>=g.heightAt(p.x,p.z));
-  const groups=state.regions.map(r=>g.cityModel(r,g.cityIndex(r))),batched=g.batchStatic(groups);
+  for(const road of terrain.roadPaths(sites,state.regions.map(r=>r.politicalOwner)))for(const p of road)assert.ok(p.y>=terrain.heightAt(p.x,p.z));
+  const groups=state.regions.map(r=>g.cityModel(r,g.cityIndex(r),false,terrain,difficulty)),batched=g.batchStatic(groups);
   assert.ok(batched.children.length<40);batched.traverse(mesh=>{if(mesh.isMesh){assert.ok([...mesh.geometry.attributes.position.array].every(Number.isFinite));mesh.geometry.dispose();}});
-  const news=g.createNewsrooms(false,sites);news.sync(state.regions,0);news.update(1);assert.equal(news.group.children[0].count,count*3);
+  const news=g.createNewsrooms(false,sites,terrain);news.sync(state.regions,0);news.update(1);assert.equal(news.group.children[0].count,count*3);
   for(const mesh of news.group.children){assert.ok([...mesh.instanceMatrix.array].every(Number.isFinite));mesh.geometry.dispose();mesh.material.dispose();mesh.dispose();}
-  const live=g.createLivingMap(true,false,sites);live.update(20);assert.equal(live.group.children[0].count,count);
+  const live=g.createLivingMap(true,false,sites,terrain);live.update(20);assert.equal(live.group.children[0].count,count);
   for(const mesh of live.group.children){assert.ok([...mesh.instanceMatrix.array].every(Number.isFinite));mesh.geometry.dispose();mesh.material.dispose();mesh.dispose();}
  }
 }
+const terrains = ['discovery','standard','expert'].map(g.terrainFor);
+const bounds = terrains.map(terrain => Math.max(...terrain.lands.flatMap(land=>land.points.map(([x,z])=>Math.abs(x)+Math.abs(z)))));
+assert.ok(bounds[0]<bounds[1]&&bounds[1]<bounds[2]);
+const maximum = terrains.map(terrain=>{
+ const mesh=terrain.terrainGeometry(92,62);
+ const positions=mesh.attributes.position;
+ const peak=Array.from({length:positions.count},(_,i)=>positions.getY(i)).reduce((a,b)=>Math.max(a,b),-Infinity);
+ mesh.dispose();
+ return peak;
+});
+assert.ok(maximum[0]<maximum[1]&&maximum[1]<maximum[2], `Distinct relief: ${maximum}`);
 assert.equal(values.get('spheres.session.v6:old:standard'),'old-data');assert.equal(g.loadSession(storage,'old'),null);
 // An isolated controlled relay with a newsroom must reach a third-hop foreign city.
 const relayState=g.createQuickGame('relay-regression','atlas','expert');

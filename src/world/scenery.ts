@@ -1,6 +1,7 @@
+import type { DifficultyId } from '../game/information';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ALL_CITY_SITES, CITY_SITES, climateAt, isNeutralLand, channel, coastDistance, heightAt, randomGenerator, ribbon } from './terrain';
+import { DEFAULT_TERRAIN, CITY_SITES, randomGenerator, ribbon } from './terrain';
 import { Region } from '../game/types';
 
 export const FACTION_COLORS = { atlas:'#4baff5',meridian:'#ed6259',concordat:'#efd05d',neutral:'#939c98',contested:'#939c98' };
@@ -14,7 +15,8 @@ export function sharedAssetGeometries(): THREE.BufferGeometry[] { return shapes;
 function piece(group:THREE.Group,geometry:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,sx:number,sy:number,sz:number,rotation=0):THREE.Mesh {
   const mesh=new THREE.Mesh(geometry,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.rotation.y=rotation;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;
 }
-export function cityModel(region:Region,index:number,economy=false):THREE.Group {
+export function cityModel(region:Region,index:number,economy=false,map=DEFAULT_TERRAIN,difficulty:DifficultyId='standard'):THREE.Group {
+  const {sites:ALL_CITY_SITES, heightAt, coastDistance, channel}=map;
   const group=new THREE.Group(),random=randomGenerator(400+index);
   const style=region.politicalOwner,capital=index<12&&index%4===0;
   const walls=material(style==='concordat'?'#bba077':style==='meridian'?'#d1b395':'#ded7bd'),trim=material(style==='meridian'?'#8c5144':style==='concordat'?'#a88043':'#b9a982'),windows=new THREE.MeshStandardMaterial({color:'#b9a16b',emissive:'#ffbf66',emissiveIntensity:.65,roughness:.85}),paving=material('#aaa38c');
@@ -71,6 +73,20 @@ export function cityModel(region:Region,index:number,economy=false):THREE.Group 
     piece(group,box,windows,-.6,y-.23,-.19,.19,.2,.015);
     piece(group,cone,roof,-.6,y+.22,-.35,.32,.5,.32,Math.PI/4);
   }
+  if(capital&&difficulty==='expert'){
+    const rampart=material(style==='meridian'?'#744b42':style==='concordat'?'#987745':'#73878a');
+    for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+      const x=Math.cos(angle)*1.38,z=Math.sin(angle)*1.38;
+      piece(group,box,rampart,x,.36,z,.22,.7,1.16,angle);
+      piece(group,box,trim,x,.75,z,.29,.15,.43,angle);
+    }
+    piece(group,cylinder,trim,0,.16,0,1.13,.28,1.13);
+  }else if(capital&&difficulty==='standard'){
+    for(const x of [-.68,.68]){
+      piece(group,box,walls,x,.33,-.72,.4,.62,.48);
+      piece(group,cone,roof,x,.77,-.72,.48,.31,.51,Math.PI/4);
+    }
+  }
   // A second ring of grounded blocks gives capitals a broader urban footprint.
   if(capital){
     const site=ALL_CITY_SITES[index],level=heightAt(site.x,site.y);
@@ -108,7 +124,8 @@ export function batchStatic(groups:THREE.Group[]):THREE.Group {
     if(geometry){const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;result.add(mesh);}
   });return result;
 }
-export function vegetation(roads:THREE.Vector3[][],economy:boolean,sites=CITY_SITES):THREE.Group {
+export function vegetation(roads:THREE.Vector3[][],economy:boolean,sites=CITY_SITES,map=DEFAULT_TERRAIN):THREE.Group {
+  const { climateAt, isNeutralLand, channel, coastDistance, heightAt }=map;
   const group=new THREE.Group(),random=randomGenerator(723);
   const treePositions:{x:number;z:number;y:number;size:number;angle:number}[]=[];
   const roadSamples=roads.flatMap(path=>path.filter((_,i)=>i%3===0));

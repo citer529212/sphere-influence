@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { coastDistance } from './terrain';
-export function createWater(economy=false): THREE.Mesh<THREE.PlaneGeometry,THREE.ShaderMaterial> {
+import type { DifficultyId } from '../game/information';
+export function createWater(economy=false,distance=coastDistance,difficulty:DifficultyId='standard'): THREE.Mesh<THREE.PlaneGeometry,THREE.ShaderMaterial> {
   const size=economy?96:192,data=new Uint8Array(size*size);
-  for(let j=0;j<size;j++)for(let i=0;i<size;i++)data[j*size+i]=Math.round(THREE.MathUtils.clamp((coastDistance((i/(size-1)-.5)*76,(j/(size-1)-.5)*48)+8)/16,0,1)*255);
+  for(let j=0;j<size;j++)for(let i=0;i<size;i++)data[j*size+i]=Math.round(THREE.MathUtils.clamp((distance((i/(size-1)-.5)*76,(j/(size-1)-.5)*48)+8)/16,0,1)*255);
   const shore=new THREE.DataTexture(data,size,size,THREE.RedFormat);shore.minFilter=shore.magFilter=THREE.LinearFilter;shore.needsUpdate=true;
   const material=new THREE.ShaderMaterial({
     defines:economy?{LOW_POWER:1}:{},
-    uniforms:{daylight:{value:1},shore:{value:shore},time:{value:0},deep:{value:new THREE.Color('#10394b')},shallow:{value:new THREE.Color('#4aa49b')},foam:{value:new THREE.Color('#d7e9df')}},
+    uniforms:{daylight:{value:1},shore:{value:shore},time:{value:0},deep:{value:new THREE.Color(difficulty==='expert'?'#152c49':difficulty==='discovery'?'#154653':'#10394b')},shallow:{value:new THREE.Color('#4aa49b')},foam:{value:new THREE.Color('#d7e9df')}},
     vertexShader:`uniform float time; varying vec3 worldPosition;
       void main(){vec3 p=position; p.z+=sin(p.x*.65+time*.65)*cos(p.y*.54+time*.4)*.025;
       vec4 world=modelMatrix*vec4(p,1.);worldPosition=world.xyz;gl_Position=projectionMatrix*viewMatrix*world;}`,

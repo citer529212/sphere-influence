@@ -1230,3 +1230,234 @@ button:focus-visible, select:focus-visible { outline: 2px solid #f5dc9c; outline
   color: #e2cb8c;
   font-size: 13px;
 }
+
+/* Opening, title and atlas loading share the cinematic art. */
+.game-shell .result-overlay:has(.atlas-title-screen) {
+  padding: 0;
+  background: #08171e;
+}
+.game-shell .result-box.atlas-title-screen {
+  position: relative;
+  display: grid;
+  align-items: end;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: clamp(24px, 6vw, 112px);
+  border: 0;
+  border-radius: 0;
+  background: #08171e;
+}
+.atlas-title-art,
+.atlas-loading > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 36%;
+  z-index: -2;
+}
+.atlas-title-art { animation: atlas-title-art 15s ease-out both; }
+.atlas-title-screen::before,
+.atlas-loading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #06151fe8, #06151f25 75%),
+              linear-gradient(0deg, #06151f 4%, #06151f15 74%);
+}
+.atlas-title-copy {
+  width: min(100%, 560px);
+  animation: atlas-copy-in .65s ease-out both;
+}
+.atlas-title-copy > h1 {
+  font: 400 clamp(42px, 8vw, 112px)/.93 Georgia, serif;
+  color: #f7e4b4;
+  margin: 16px 0;
+  text-wrap: balance;
+}
+.atlas-title-copy .map-eyebrow {
+  color: #ead298;
+  text-transform: uppercase;
+  letter-spacing: .19em;
+}
+.game-shell .atlas-title-copy > p {
+  color: #efe6ce;
+  font-size: clamp(13px, 2vw, 17px);
+  margin-bottom: 22px;
+}
+.atlas-title-buttons, .atlas-title-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.game-shell .atlas-title-buttons button,
+.game-shell .atlas-title-settings button {
+  min-height: 44px;
+  padding: 9px 15px;
+  background: #0d2634e8;
+}
+.game-shell .atlas-title-buttons button:first-child {
+  background: #e3c984;
+  border-color: #f8e8b3;
+  color: #14262e;
+  font-weight: 700;
+}
+.atlas-title-settings { margin-top: 16px; }
+.atlas-title-settings summary { cursor: pointer; padding: 12px 0; }
+.atlas-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  isolation: isolate;
+  display: grid;
+  place-items: end center;
+  box-sizing: border-box;
+  padding: 24px 24px max(48px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: #08171e;
+}
+.map-stage:has(.atlas-loading) { z-index: 40; }
+.atlas-loading-copy {
+  width: min(100%, 440px);
+  padding: 20px 0;
+  text-align: center;
+}
+.atlas-loading-copy h2 {
+  font: 400 clamp(24px, 5vw, 46px)/1.08 Georgia, serif;
+  color: #f7e4b4;
+  margin: 0;
+}
+.atlas-loading-copy p { color: #eee6d1; }
+.atlas-loading-track {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: #d3b77755;
+}
+.atlas-loading-track progress { opacity: 0; position: absolute; }
+.atlas-loading-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 36%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, transparent, #efd798);
+  animation: atlas-loading-run 1.25s ease-in-out infinite;
+}
+.practice-atlas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 76 / 49;
+  min-height: 240px;
+  margin: 12px 0;
+  border: 1px solid #829f984d;
+  border-radius: 8px;
+  background: repeating-linear-gradient(0deg, transparent 0 26px, #a0b6b014 26px 27px),
+              repeating-linear-gradient(90deg, transparent 0 26px, #a0b6b014 26px 27px),
+              radial-gradient(ellipse, #225062, #0d2737 77%);
+}
+.practice-atlas > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.practice-atlas polygon { fill-opacity: .3; stroke: #dbc991a0; stroke-width: .15; stroke-linejoin: round; }
+.practice-route { stroke: #9eb2ae62; stroke-width: .25; stroke-dasharray: 1 .8; }
+.practice-route.active { stroke: #f2d787; animation: practice-link 1.8s linear infinite; }
+.game-shell .practice-atlas .practice-pin {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 100%;
+  background: transparent;
+}
+.game-shell .practice-atlas .practice-pin[data-required="true"] { outline: none; }
+.practice-pin > i {
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 2px solid #f3e7bb;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px #0e2838ba;
+  pointer-events: none;
+}
+.practice-pin.outside > i { opacity: .54; }
+.practice-pin[data-required="true"] > i {
+  box-shadow: 0 0 0 4px #edd29488;
+  animation: practice-required 1.5s ease-in-out infinite;
+}
+.game-shell .practice-pin[aria-pressed="true"] > i {
+  width: 17px;
+  height: 17px;
+  box-shadow: 0 0 0 4px #f3d485a8;
+}
+.practice-pin-caption, .practice-pin-effect {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 98%;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #0c2634f5;
+  color: #f3e1b4;
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.practice-pin-effect {
+  top: auto;
+  bottom: 100%;
+  color: #ffebaa;
+  font-size: 15px;
+  animation: practice-result 1.65s ease-out both;
+}
+@keyframes atlas-title-art { from { transform: scale(1.07); } to { transform: scale(1); } }
+@keyframes atlas-copy-in { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes atlas-loading-run { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@keyframes practice-link { to { stroke-dashoffset: -3.6; } }
+@keyframes practice-required { 50% { box-shadow: 0 0 0 7px #edd29432; } }
+@keyframes practice-result { from { opacity: 1; transform: translate(-50%, 5px); } to { opacity: 0; transform: translate(-50%, -20px); } }
+@media (max-width: 580px) {
+  .game-shell .result-box.atlas-title-screen { padding: 24px max(22px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); }
+  .atlas-title-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+  .atlas-title-buttons button:first-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atlas-title-art, .atlas-title-copy, .atlas-loading-track i,
+  .practice-route.active, .practice-pin[data-required="true"] > i, .practice-pin-effect { animation: none; }
+}
+
+.game-shell .overview-labels .world-city-label:not(.selected, :hover, :focus-visible) {
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  opacity: 1;
+}
+.overview-labels .world-city-label:not(.selected, :hover, :focus-visible) :is(.city-label-name,.city-opinion) { display: none; }
+.overview-labels .world-city-label:not(.selected, :hover, :focus-visible) .city-owner-marker { margin: 0; }
+
+.school-explanation, .school-practice { min-width: 0; }
+.school-body:has(.school-quiz) { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 720px) {
+  .school-body { grid-template-columns: minmax(0, 1fr); }
+  .practice-pin-caption { max-width: 110px; white-space: normal; }
+  .game-shell .practice-atlas .practice-pin { width: 30px; height: 32px; }
+}

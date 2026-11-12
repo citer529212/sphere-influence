@@ -8,9 +8,12 @@ import { createWorld, WorldApi } from '../world/createWorld';
 import { FACTION_COLORS } from '../world/scenery';
 import { opinion } from '../world/opinion';
 import { REALMS, FACTION_IDS } from '../game/realms';
+import { AtlasLoading } from './MapLoading';
+import { MAP_PRESENTATION } from '../game/mapPresentation';
+import type { DifficultyId } from '../game/information';
 
-type Props = { active?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null;fullscreen?:boolean;player?:FactionId;turn?:number;keyboardEnabled?:boolean; regions: Region[]; selectedRegionId: string | null; onSelectRegion: (id: string) => void; onCaptureReady?: (capture:(()=>string)|null)=>void };
-export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptureReady, player='atlas',turn=1,keyboardEnabled=true,actionEvent=null,fullscreen=false,reachableIds,active=true }: Props): JSX.Element {
+type Props = { difficulty?:DifficultyId; active?:boolean;reachableIds?:string[];actionEvent?:ActionEvent|null;fullscreen?:boolean;player?:FactionId;turn?:number;keyboardEnabled?:boolean; regions: Region[]; selectedRegionId: string | null; onSelectRegion: (id: string) => void; onCaptureReady?: (capture:(()=>string)|null)=>void };
+export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptureReady, player='atlas',difficulty='standard',turn=1,keyboardEnabled=true,actionEvent=null,fullscreen=false,reachableIds,active=true }: Props): JSX.Element {
   const host=useRef<HTMLDivElement>(null),api=useRef<WorldApi|null>(null);
   const [network,setNetwork]=useState(false);
   const [lighting,setLighting]=useState<'cycle'|'day'>('cycle');
@@ -23,14 +26,17 @@ export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptur
   const latest=useRef({regions,selectedRegionId,onSelectRegion,layer,player,network,lighting,reachableIds});latest.current={regions,selectedRegionId,onSelectRegion,layer,player,network,lighting,reachableIds};
   useEffect(()=>{
     const container=host.current;if(!container)return;
+    let start = 0;
+    const paint = requestAnimationFrame(()=>{start=requestAnimationFrame(()=>{
     try{
-      api.current=createWorld(container,latest.current,{
+      api.current=createWorld(container,{...latest.current,difficulty},{
         select:id=>latest.current.onSelectRegion(id),hover:setHovered,announce:setAnnouncement,error:()=>setError(true)
       });api.current.setInteraction(!compact||interaction);onCaptureReady?.(api.current.capture);setReady(true);
     }catch(error){console.error('Could not create the island scene',error);setError(true);}
-    return()=>{onCaptureReady?.(null);api.current?.dispose();api.current=null;};
-  },[worldKey]);
-  useEffect(()=>{api.current?.update({regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds});},[regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds]);
+    });});
+    return()=>{cancelAnimationFrame(paint);cancelAnimationFrame(start);onCaptureReady?.(null);api.current?.dispose();api.current=null;};
+  },[worldKey,difficulty]);
+  useEffect(()=>{api.current?.update({regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds});},[regions,selectedRegionId,layer,player,actionEvent,network,lighting,reachableIds,ready]);
   useEffect(()=>{const query=window.matchMedia('(max-width:700px)'),coarse=window.matchMedia('(pointer:coarse)');const changed=()=>setCompact(query.matches||coarse.matches);query.addEventListener('change',changed);coarse.addEventListener('change',changed);return()=>{query.removeEventListener('change',changed);coarse.removeEventListener('change',changed);};},[]);
   useEffect(()=>{api.current?.setInteraction(!compact||interaction);},[compact,interaction]);
   useEffect(()=>{api.current?.setActive(active);},[active,ready]);
@@ -40,7 +46,7 @@ export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptur
   const hoveredRegion=regions.find(r=>r.id===hovered),inspected=regions.find(r=>r.id===selectedRegionId);
   const view=inspected?opinion(inspected,player):null;
   return <section className={`map-card atlas-map-shell refined-world ${fullscreen?'fullscreen-world':''}`}>
-    <div className="map-heading"><div><span className="map-eyebrow">АТЛАС · {regions.length} ГОРОДОВ</span><h2>Атлас трёх корон</h2></div><span className="world-location">{SEASONS[season(turn)]} · Ход {turn}<small>Вымышленный мир</small></span></div>
+    <div className="map-heading"><div><span className="map-eyebrow">АТЛАС · {regions.length} ГОРОДОВ</span><h2>{MAP_PRESENTATION[difficulty].name}</h2></div><span className="world-location">{SEASONS[season(turn)]} · Ход {turn}<small>Вымышленный мир</small></span></div>
     <div className={`map-toolbar world-toolbar ${compact&&!toolsOpen?'mobile-tools-closed':''}`}>
       {compact&&<button className="mobile-tools-toggle" aria-expanded={toolsOpen} aria-controls="mobile-map-tools" onClick={()=>setToolsOpen(v=>!v)}>{toolsOpen?'Закрыть карту ⚙':'Карта ⚙'}</button>}
       <div id="mobile-map-tools" className="map-tools-content">
@@ -48,10 +54,10 @@ export function WorldScene({ regions, selectedRegionId, onSelectRegion, onCaptur
       {layer==='information'&&inspected&&view&&<details className="opinion-inspector"><summary>Мнения · {view.support}%</summary><div className="opinion-panel"><strong>{inspected.name}</strong><p>{view.status}</p>{FACTION_IDS.map(f=><div className="opinion-row" key={f}><span>{REALMS[f].name}{f===player?' · вы':''}</span><meter min={0} max={100} value={inspected.influence[f]} style={{accentColor:FACTION_COLORS[f]}} aria-label={`Поддержка: ${REALMS[f].name}`}/><b>{inspected.influence[f]}%</b></div>)}<small>{view.needed>0?`До вашего лидерства: +${view.needed} очков поддержки.`:'Ваша повестка лидирует. Удерживайте поддержку.'} Показатели независимы и не складываются в 100%.</small><small>Цвет земли — лидер повестки; насыщенность — отрыв от соперника. Пунктир у города — лидерство с отрывом меньше 15 очков.</small></div></details>}
       <div className="map-zoom"><button className="daylight-toggle" aria-label="Зафиксировать дневной свет" aria-pressed={lighting==='day'} onClick={()=>setLighting(v=>v==='day'?'cycle':'day')} title="День и ночь: полный цикл 4 минуты. Нажмите, чтобы зафиксировать день. При уменьшении движения — постоянный день.">{lighting==='day'?'☀ День':'◐ Цикл'}</button><button className="network-toggle" aria-pressed={network} onClick={()=>setNetwork(v=>!v)}>◎ Сеть</button><button onClick={()=>api.current?.focus()} disabled={!selectedRegionId}>К городу</button><button aria-label="Отдалить" onClick={()=>api.current?.zoom(1.2)}>−</button><button onClick={()=>api.current?.reset()}>Обзор</button><button aria-label="Приблизить" onClick={()=>api.current?.zoom(.8)}>+</button></div></div></div>
     <div ref={host} className="world-viewport">
-      {!ready&&!error&&<div className="world-loading">Открываем атлас…</div>}
+      {!ready&&!error&&<AtlasLoading difficulty={difficulty} phase="terrain"/>}
       {error&&<p className="world-error">3D-карта недоступна. Попробуйте обновить страницу или включить аппаратное ускорение браузера. Выбирать города можно в панели действий.</p>}
       <div className="world-compass" aria-hidden="true"><span>С</span><i>✧</i></div>
-      <div className="world-caption">{hoveredRegion?`${hoveredRegion.name} · ${hoveredRegion.type}`:'Три материка · Серые нейтральные острова · Снега, долины, пустыни и тропики.'}</div>
+      <div className="world-caption">{hoveredRegion?`${hoveredRegion.name} · ${hoveredRegion.type}`:MAP_PRESENTATION[difficulty].description}</div>
       <div className={`world-announcement ${announcement?'visible':''}`} role="status">{announcement}</div>
     </div>
     <div className="map-footer"><div className="map-factions">{(['atlas','meridian','concordat'] as const).map(f=><span key={f}><i style={{background:FACTION_COLORS[f]}}/>{FACTIONS[f].name}</span>)}</div><p>Границы — {layer==='political'?'державы':'инфоконтроль'} · Флаг и полоса у города — инфоконтроль · {compact?"Палец — сдвиг · Два пальца — масштаб и поворот":"WASD / стрелки — перемещение · Shift — ускорение ×2,5 · Колесо — масштаб · Правая кнопка — сдвиг"}</p><details className="world-region-list"><summary>Все регионы</summary><div>{regions.map(r=><button key={r.id} aria-pressed={r.id===selectedRegionId} onClick={()=>onSelectRegion(r.id)}>{r.name}</button>)}</div></details></div>

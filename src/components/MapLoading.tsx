@@ -1,4 +1,32 @@
-import { Region } from '../game/types';
-export function MapLoading({regions,onSelect,failed=false}:{regions:Region[];onSelect:(id:string)=>void;failed?:boolean}):JSX.Element {
-  return <section className="map-card map-loading-card"><span className="map-eyebrow">ТРИ МАТЕРИКА</span><h2>{failed?'Карта пока недоступна':'Открываем атлас…'}</h2><p>{failed?'Партия сохранена. Обновите страницу, чтобы повторить загрузку карты.':'Пока карта открывается, можно выбрать город и принять решение.'}</p>{failed&&<button onClick={()=>window.location.reload()}>Повторить загрузку</button>}<div className="loading-island" aria-hidden="true"><span>✧</span></div><div className="loading-city-list" aria-label="Города трёх материков">{regions.map(r=><button key={r.id} onClick={()=>onSelect(r.id)}>{r.name}</button>)}</div></section>;
+import type { DifficultyId } from '../game/information';
+import type { Region } from '../game/types';
+import { MAP_PRESENTATION } from '../game/mapPresentation';
+import { INTRO_POSTER } from '../ui/cinematicAssets';
+
+export function AtlasLoading({difficulty,phase}:{
+  difficulty:DifficultyId;
+  phase:'assets'|'terrain';
+}): JSX.Element {
+  return <div className="atlas-loading" role="status">
+    <img src={INTRO_POSTER} alt="" />
+    <div className="atlas-loading-copy">
+      <h2>{MAP_PRESENTATION[difficulty].name}</h2>
+      <p>{phase==='assets'?'Загружаем 3D-карту…':'Строим рельеф и расставляем города…'}</p>
+      <div className="atlas-loading-track"><progress aria-label="Загрузка карты" /><i aria-hidden="true" /></div>
+    </div>
+  </div>;
+}
+
+export function MapLoading({regions,onSelect,difficulty,failed=false}:{
+  regions:Region[];onSelect:(id:string)=>void;difficulty:DifficultyId;failed?:boolean;
+}): JSX.Element {
+  if(!failed)return <AtlasLoading difficulty={difficulty} phase="assets"/>;
+  return <section className="map-card map-loading-card">
+    <h2>3D-карта пока недоступна</h2>
+    <p>Партия сохранена. Вы можете выбрать город из списка.</p>
+    <button onClick={()=>window.location.reload()}>Повторить загрузку</button>
+    <div className="loading-city-list" aria-label="Города трёх материков">
+      {regions.map(region=><button key={region.id} onClick={()=>onSelect(region.id)}>{region.name}</button>)}
+    </div>
+  </section>;
 }
