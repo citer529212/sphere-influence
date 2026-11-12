@@ -11,7 +11,7 @@ import {
 } from "./information";
 import { cityIndex,cityOwner,regionTopic,regionRole,worldFor,worldLinks,WORLD_IDS,WORLD_NAMES } from "./worlds";
 import { EventOption } from "./events";
-import { ActiveCampaign,CampaignChannel,CHANNELS,DOCTRINES,applyCampaign,campaignError as channelError,advanceCampaigns } from "./campaigns";
+import { ActiveCampaign,CampaignChannel,CHANNELS,DOCTRINES,applyCampaign,campaignError as channelError,advanceCampaigns,type CampaignAssessment } from "./campaigns";
 import { IndependentState,ActorId,createIndependents,independentIncome,independentReach,advanceIndependents,applyDiplomacy,INDEPENDENT_IDS } from "./independents";
 import { Accord,characterEvent } from "./characters";
 export type QuickAction = "media" | "attract" | "protect";
@@ -32,6 +32,7 @@ export type QuickState = {
   eventTurn: number;
   independents?:IndependentState[];
   activeCampaigns?:ActiveCampaign[];
+  lastCampaignAssessment?:CampaignAssessment;
   accords?:Partial<Record<FactionId,Accord>>;
   rivalHeld: Record<FactionId, number>;
   winner: FactionId | null;

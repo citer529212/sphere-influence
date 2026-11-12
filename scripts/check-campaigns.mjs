@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-const b=await build({stdin:{contents:`export * from './src/game/quickGame';export {CHANNELS,DOCTRINES,advanceCampaigns,stageGain} from './src/game/campaigns';export * from './src/game/session';export {INDEPENDENT_IDS} from './src/game/independents';export {FACTION_IDS} from './src/game/realms';export {regionTopic} from './src/game/worlds';export {MAP_LANDS} from './src/world/mapContours';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',write:false});
+const b=await build({stdin:{contents:`export * from './src/game/quickGame';export {CHANNELS,DOCTRINES,advanceCampaigns,stageGain,forecastCampaignStage} from './src/game/campaigns';export * from './src/game/session';export {INDEPENDENT_IDS} from './src/game/independents';export {FACTION_IDS} from './src/game/realms';export {regionTopic} from './src/game/worlds';export {MAP_LANDS} from './src/world/mapContours';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',write:false});
 const g=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
 assert.deepEqual(g.FACTION_IDS,['atlas','meridian','concordat']);assert.equal(g.INDEPENDENT_IDS.length,3);assert.equal(new Set([...g.FACTION_IDS,...g.INDEPENDENT_IDS]).size,6);assert.deepEqual([...new Set(g.MAP_LANDS.map(l=>l.faction).filter(f=>f!=='neutral'))].sort(),[...g.FACTION_IDS].sort());
 for(const difficulty of ['discovery','standard','expert'])assert.equal(g.createQuickGame('six-actors','atlas',difficulty).independents.length,3);
@@ -21,4 +21,44 @@ assert.equal(g.stageGain(s,{...c,channel:'community',actor:'concordat'},r)-g.sta
 let a=g.launchCampaign(g.createQuickGame('backlash'),r.id,'broadcast');a.activeCampaigns[0].stage=1;a.trust=30;a.regions[0].influence.atlas=0;let events=[];g.advanceCampaigns(a,g.mediaReach,g.regionController,e=>events.push(e));assert.equal(a.trust,27);assert.equal(events[0].changes.length,0,'An already empty audience still causes reputational backlash and no viral spread');
 a=g.createQuickGame('shield-stage');a=g.launchCampaign(a,r.id,'newsroom');a.regions[0].factCheckShield.meridian=1;const support=a.regions[0].influence.atlas;events=[];g.advanceCampaigns(a,g.mediaReach,g.regionController,e=>events.push(e));assert.equal(a.regions[0].influence.atlas,support);assert.equal(a.regions[0].factCheckShield.meridian,0);assert.ok(events[0].text.includes('сдержала'));
 a=g.createQuickGame('network-cut');const remote=a.regions.find(x=>x.politicalOwner==='neutral');a.accords.atlas={npc:'courier',regionId:remote.id,expires:3};a=g.launchCampaign(a,remote.id,'newsroom');assert.equal(a.activeCampaigns.length,1);a.accords={};for(const x of a.regions){x.infoController='contested';x.mediaNodes.atlas=0;}events=[];g.advanceCampaigns(a,g.mediaReach,g.regionController,e=>events.push(e));assert.ok(events[0].text.includes('Нет связи'));
-console.log('Campaigns passed: exactly six actors and three mainlands; three doctrine bonuses; real costs, one slot, persisted stages, expiry, shield survival, blocked stages, network cuts and backlash at zero support.');
+for (const scenario of ['normal', 'support-cap', 'shield', 'lost-reach', 'backlash']) {
+ const channel = scenario === 'backlash' ? 'broadcast' : 'newsroom';
+ const game = g.launchCampaign(g.createQuickGame('forecast'), r.id, channel);
+ const [campaign] = game.activeCampaigns;
+ const city = game.regions.find(region => region.id === campaign.regionId);
+ const reach = scenario === 'lost-reach' ? () => new Set() : g.mediaReach;
+ if (scenario === 'support-cap') city.influence.atlas = 99;
+ if (scenario === 'shield') city.factCheckShield.meridian = 1;
+ if (scenario === 'backlash') {
+  city.fatigue = 60;
+  city.influence.atlas = 2;
+  campaign.stage = 1;
+ }
+ const before = structuredClone(game);
+ const forecast = g.forecastCampaignStage(game, campaign, reach);
+ assert.deepEqual(game, before, 'A preview must never change the game');
+ if (scenario === 'support-cap') assert.equal(forecast.gain, 1);
+ if (scenario === 'shield') assert.equal(forecast.blocked, 'shield');
+ if (scenario === 'lost-reach') assert.equal(forecast.blocked, 'reach');
+ if (scenario === 'backlash') {
+  assert.equal(forecast.backlash, true);
+  assert.equal(forecast.gain, -2);
+ }
+ if (scenario === 'backlash') game.trust = 1;
+ g.advanceCampaigns(game, reach, g.regionController, event => assert.equal(event.amount, forecast.gain, scenario));
+ const report = game.lastCampaignAssessment;
+ assert.equal(report.outcome, forecast.blocked ?? (forecast.backlash ? 'backlash' : 'delivered'));
+ assert.equal(report.supportDelta, forecast.gain);
+ assert.equal(report.fatigueDelta, city.fatigue - before.regions[forecast.index].fatigue);
+ if (scenario === 'backlash') assert.equal(report.trustDelta, -1);
+ let saved;
+ const storage = { getItem: () => saved, setItem: (key, value) => { if (key.startsWith('spheres.session.')) saved = value; } };
+ assert.equal(g.saveSession(storage, game, city.id), true);
+ assert.deepEqual(g.loadSession(storage, game.seed).game.lastCampaignAssessment, report);
+ const corrupt = JSON.parse(saved);
+ corrupt.game.lastCampaignAssessment.outcome = 'unknown';
+ saved = JSON.stringify(corrupt);
+ assert.equal(g.loadSession(storage, game.seed), null);
+ assert.equal(city.influence.atlas, before.regions[forecast.index].influence.atlas + forecast.gain);
+}
+console.log('Campaigns passed: exactly six actors and three mainlands; three doctrine bonuses; real costs, one slot, persisted stages, expiry, shield survival, blocked stages, network cuts and backlash at zero support, and forecast parity.');

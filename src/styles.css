@@ -1219,3 +1219,14 @@ button:focus-visible, select:focus-visible { outline: 2px solid #f5dc9c; outline
 @media(max-width:720px){.school-coach{gap:8px;padding:10px;align-items:flex-start}.school-coach strong{font-size:12px}.school-coach button{min-width:90px;max-width:110px;font-size:11px;padding:8px}.school-coach p{font-size:10px!important}}
 .tactic-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:6px 0 12px}.game-shell .tactic-tabs button{min-height:44px;font-size:12px;padding:6px 3px}.tactic-tabs button[aria-pressed=true]{background:#4b6152!important;border-color:#dfc682;color:#f4dfaa}.tactic-explainer{font-size:11px;line-height:1.6;color:#bdcfc1;margin:8px 0 12px}.game-shell .compact-actions{grid-template-columns:1fr}.campaign-options{display:grid;gap:10px}.campaign-options article,.active-media-campaign{border:1px solid #7b988466;border-radius:9px;padding:12px;background:#102a34}.campaign-options article.doctrine-match{border-color:#cbb47b}.campaign-options h4{margin:0 0 7px;font:16px Georgia,serif}.campaign-options p,.campaign-options summary,.active-media-campaign p,.doctrine-note{font-size:11px;line-height:1.6;color:#bfd1c4}.campaign-options summary{min-height:36px;cursor:pointer;color:#dbc58d}.campaign-options button{width:100%;min-height:44px;font-size:12px;padding:9px;margin-top:8px}.active-media-campaign strong{font-size:13px;color:#e2cb8c}.active-media-campaign progress{width:100%;height:9px;accent-color:#dcc079}.campaign-risk{color:#f0bb8c!important}.game-shell.is-compact .tactic-tabs{position:sticky;top:0;z-index:2;background:#17323b;padding:5px 0}.game-shell.is-compact .tactic-tabs button{font-size:12px}
 .game-shell .music-resume{position:fixed;top:max(160px,env(safe-area-inset-top));right:12px;z-index:1500;max-width:calc(100vw - 24px);padding:10px 14px;min-height:44px;font-size:12px;color:#f6e0a7;border-color:#dfc27c;background:#173d44;box-shadow:0 6px 20px #0006}.cinematic-loading{z-index:4;max-width:calc(100% - 40px);text-align:center}
+
+.campaign-assessment {
+  margin: 0 0 10px;
+}
+
+.campaign-assessment summary {
+  cursor: pointer;
+  min-height: 24px;
+  color: #e2cb8c;
+  font-size: 13px;
+}

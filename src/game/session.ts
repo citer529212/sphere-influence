@@ -11,7 +11,7 @@ import {
   rivalObjective,
 } from "./quickGame";
 
-import { CHANNELS } from "./campaigns";
+import { CHANNELS, type CampaignAssessment } from "./campaigns";
 import { INDEPENDENT_IDS } from "./independents";
 import { CHARACTERS } from "./characters";
 import { DIFFICULTIES, DifficultyId, TOPICS } from "./information";
@@ -198,6 +198,24 @@ export function loadSession(
     for(const c of saved.activeCampaigns){
       if(!object(c)||!factions.includes(c.actor as typeof factions[number])||!Object.hasOwn(CHANNELS,String(c.channel))||!Object.hasOwn(TOPICS,String(c.topic))||!game.regions.some(r=>r.id===c.regionId)||!integer(c.started,1,Number(saved.turn))||!integer(c.stage,0,CHANNELS[c.channel as keyof typeof CHANNELS].duration-1)||c.stage>Number(saved.turn)-c.started+1||busyActors.has(String(c.actor))||c.id!==`${c.actor}:${c.started}:${c.regionId}:${c.channel}`)return null;
       busyActors.add(String(c.actor));game.activeCampaigns!.push(c as unknown as NonNullable<QuickState['activeCampaigns']>[number]);
+    }
+    const report = saved.lastCampaignAssessment;
+    if (report !== undefined) {
+      if (
+        !object(report) ||
+        !game.regions.some(region => region.id === report.regionId) ||
+        typeof report.channel !== "string" || !Object.hasOwn(CHANNELS, report.channel) ||
+        typeof report.topic !== "string" || !Object.hasOwn(TOPICS, report.topic) ||
+        !integer(report.stage, 1, CHANNELS[report.channel as keyof typeof CHANNELS].duration) ||
+        !integer(report.turn, 1, Number(saved.turn)) ||
+        !["delivered", "reach", "shield", "backlash"].some(outcome => outcome === report.outcome) ||
+        !integer(report.supportDelta, -6, 20) ||
+        !integer(report.trustDelta, -3, 2) ||
+        !integer(report.fatigueDelta, -3, 8) ||
+        !integer(report.spilloverCities, 0, 2) ||
+        typeof report.shieldGranted !== "boolean"
+      ) return null;
+      game.lastCampaignAssessment = report as unknown as CampaignAssessment;
     }
     if(!Array.isArray(saved.independents)||saved.independents.length!==game.independents!.length)return null;
     for(let i=0;i<game.independents!.length;i++){
